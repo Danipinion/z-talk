@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatDashboardScreen() {
+fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedBottomNav by remember { mutableIntStateOf(0) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
@@ -89,14 +89,25 @@ fun ChatDashboardScreen() {
             containerColor = White,
             dragHandle = { BottomSheetDefaults.DragHandle(color = GreyDivider) }
         ) {
-            ChatOptionsContent {
-                scope.launch { sheetState.hide() }.invokeOnCompletion {
-                    if (!sheetState.isVisible) {
-                        showBottomSheet = false
+            ChatOptionsContent(
+                onSearchClick = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            showBottomSheet = false
+                            onNavigateToSearch()
+                        }
+                    }
+                },
+                onDismiss = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            showBottomSheet = false
+                        }
                     }
                 }
-            }
+            )
         }
+
     }
 }
 
@@ -138,7 +149,7 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}, onAddClick: () -> Unit = {}) {
 }
 
 @Composable
-fun ChatOptionsContent(onDismiss: () -> Unit) {
+fun ChatOptionsContent(onSearchClick: () -> Unit, onDismiss: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -148,8 +159,9 @@ fun ChatOptionsContent(onDismiss: () -> Unit) {
         OptionItem(
             icon = Icons.AutoMirrored.Outlined.Chat,
             title = "Search for new chat",
-            onClick = onDismiss
+            onClick = onSearchClick
         )
+
         
         HorizontalDivider(color = GreyDivider, thickness = 0.5.dp)
         

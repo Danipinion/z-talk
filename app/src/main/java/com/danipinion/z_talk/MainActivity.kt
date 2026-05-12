@@ -11,8 +11,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.animation.Crossfade
+import androidx.compose.runtime.*
 import com.danipinion.z_talk.ui.screen.dashboard.ChatDashboardScreen
+import com.danipinion.z_talk.ui.screen.search.SearchUserScreen
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
+
+sealed class Screen {
+    object Dashboard : Screen()
+    object SearchUser : Screen()
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,11 +28,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZtalkTheme {
-                ChatDashboardScreen()
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+
+                Crossfade(targetState = currentScreen, label = "navigation") { screen ->
+                    when (screen) {
+                        is Screen.Dashboard -> ChatDashboardScreen(
+                            onNavigateToSearch = { currentScreen = Screen.SearchUser }
+                        )
+                        is Screen.SearchUser -> SearchUserScreen(
+                            onBack = { currentScreen = Screen.Dashboard }
+                        )
+                    }
+                }
             }
         }
     }
 }
+
 
 
 
