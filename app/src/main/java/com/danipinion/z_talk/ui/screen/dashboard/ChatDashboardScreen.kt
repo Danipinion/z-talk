@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +43,7 @@ fun ChatDashboardScreen() {
     // Bottom Sheet state
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -87,10 +89,17 @@ fun ChatDashboardScreen() {
             containerColor = White,
             dragHandle = { BottomSheetDefaults.DragHandle(color = GreyDivider) }
         ) {
-            ChatOptionsContent { showBottomSheet = false }
+            ChatOptionsContent {
+                scope.launch { sheetState.hide() }.invokeOnCompletion {
+                    if (!sheetState.isVisible) {
+                        showBottomSheet = false
+                    }
+                }
+            }
         }
     }
 }
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
