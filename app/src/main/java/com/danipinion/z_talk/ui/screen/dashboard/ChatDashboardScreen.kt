@@ -38,10 +38,17 @@ fun ChatDashboardScreen() {
     
     // Toggle for empty state demo
     var showEmptyState by remember { mutableStateOf(false) }
+    
+    // Bottom Sheet state
+    var showBottomSheet by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState()
 
     Scaffold(
         topBar = {
-            ChatTopBar { showEmptyState = !showEmptyState }
+            ChatTopBar(
+                onTitleClick = { showEmptyState = !showEmptyState },
+                onAddClick = { showBottomSheet = true }
+            )
         },
         bottomBar = {
             ChatBottomNavigation(selectedBottomNav) { selectedBottomNav = it }
@@ -72,11 +79,22 @@ fun ChatDashboardScreen() {
             }
         }
     }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = White,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = GreyDivider) }
+        ) {
+            ChatOptionsContent { showBottomSheet = false }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatTopBar(onTitleClick: () -> Unit = {}) {
+fun ChatTopBar(onTitleClick: () -> Unit = {}, onAddClick: () -> Unit = {}) {
     TopAppBar(
         title = {
             Text(
@@ -91,17 +109,9 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}) {
             )
         },
         actions = {
-            var isPressed by remember { mutableStateOf(false) }
-            val scale by animateFloatAsState(if (isPressed) 0.8f else 1f, label = "iconScale")
-            
             IconButton(
-                onClick = { /* TODO */ },
-                modifier = Modifier
-                    .scale(scale)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { /* Logic handled by Button or custom */ }
+                onClick = onAddClick,
+                modifier = Modifier.padding(end = 4.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.AddCircle,
@@ -117,6 +127,80 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}) {
         modifier = Modifier.padding(horizontal = 8.dp)
     )
 }
+
+@Composable
+fun ChatOptionsContent(onDismiss: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp, top = 8.dp)
+            .padding(horizontal = 24.dp)
+    ) {
+        OptionItem(
+            icon = Icons.AutoMirrored.Outlined.Chat,
+            title = "Search for new chat",
+            onClick = onDismiss
+        )
+        
+        HorizontalDivider(color = GreyDivider, thickness = 0.5.dp)
+        
+        OptionItem(
+            icon = Icons.Outlined.QrCodeScanner,
+            title = "Scan for new chat",
+            onClick = onDismiss
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Cancel",
+                color = RedPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun OptionItem(icon: ImageVector, title: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Black,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp,
+            color = Black
+        )
+    }
+}
+
+
 
 @Composable
 fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
