@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}) {
+fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}, onNavigateToScan: () -> Unit = {}) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedBottomNav by remember { mutableIntStateOf(0) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
@@ -98,6 +98,14 @@ fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}) {
                         }
                     }
                 },
+                onScanClick = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            showBottomSheet = false
+                            onNavigateToScan()
+                        }
+                    }
+                },
                 onDismiss = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
@@ -110,7 +118,6 @@ fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}) {
 
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,7 +156,7 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}, onAddClick: () -> Unit = {}) {
 }
 
 @Composable
-fun ChatOptionsContent(onSearchClick: () -> Unit, onDismiss: () -> Unit) {
+fun ChatOptionsContent(onSearchClick: () -> Unit, onScanClick: () -> Unit, onDismiss: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -161,15 +168,15 @@ fun ChatOptionsContent(onSearchClick: () -> Unit, onDismiss: () -> Unit) {
             title = "Search for new chat",
             onClick = onSearchClick
         )
-
         
         HorizontalDivider(color = GreyDivider, thickness = 0.5.dp)
         
         OptionItem(
             icon = Icons.Outlined.QrCodeScanner,
             title = "Scan for new chat",
-            onClick = onDismiss
+            onClick = onScanClick
         )
+
         
         Spacer(modifier = Modifier.height(24.dp))
         
