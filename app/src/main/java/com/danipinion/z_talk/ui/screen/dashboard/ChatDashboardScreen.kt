@@ -1,20 +1,26 @@
 package com.danipinion.z_talk.ui.screen.dashboard
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -27,7 +33,7 @@ import com.danipinion.z_talk.ui.theme.*
 @Composable
 fun ChatDashboardScreen() {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedBottomNav by remember { mutableIntStateOf(3) } // "Chat" is index 3
+    var selectedBottomNav by remember { mutableIntStateOf(0) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
     
     // Toggle for empty state demo
@@ -50,10 +56,19 @@ fun ChatDashboardScreen() {
         ) {
             ChatFilterTabs(selectedTab) { selectedTab = it }
             
-            if (showEmptyState) {
-                EmptyChatState()
-            } else {
-                ChatList(chats)
+            AnimatedContent(
+                targetState = showEmptyState,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
+                        .togetherWith(fadeOut(animationSpec = tween(400)))
+                },
+                label = "contentTransition"
+            ) { targetEmptyState ->
+                if (targetEmptyState) {
+                    EmptyChatState()
+                } else {
+                    ChatList(chats)
+                }
             }
         }
     }
@@ -69,11 +84,25 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}) {
                 fontSize = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Black,
-                modifier = Modifier.clickable { onTitleClick() }
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onTitleClick() }
+                    .padding(horizontal = 4.dp)
             )
         },
         actions = {
-            IconButton(onClick = { /* TODO */ }) {
+            var isPressed by remember { mutableStateOf(false) }
+            val scale by animateFloatAsState(if (isPressed) 0.8f else 1f, label = "iconScale")
+            
+            IconButton(
+                onClick = { /* TODO */ },
+                modifier = Modifier
+                    .scale(scale)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { /* Logic handled by Button or custom */ }
+            ) {
                 Icon(
                     imageVector = Icons.Default.AddCircle,
                     contentDescription = "New Chat",
@@ -91,32 +120,58 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}) {
 
 @Composable
 fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    Row(
+    val tabs = listOf("All", "Unread")
+    
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .background(GreyLight, RoundedCornerShape(12.dp))
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(4.dp)
     ) {
-        val tabs = listOf("All", "Unread", "Archived")
-        tabs.forEachIndexed { index, title ->
-            val isSelected = selectedTab == index
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (isSelected) White else Color.Transparent)
-                    .clickable { onTabSelected(index) }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = title,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) Black else GreyText,
-                    fontSize = 14.sp
+        val tabWidth = maxWidth / tabs.size
+        val indicatorOffset by animateDpAsState(
+            targetValue = tabWidth * selectedTab,
+            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
+            label = "tabIndicator"
+        )
+
+        // Sliding background indicator
+        Box(
+            modifier = Modifier
+                .offset(x = indicatorOffset)
+                .width(tabWidth)
+                .height(40.dp) // Height of tabs
+                .clip(RoundedCornerShape(8.dp))
+                .background(White)
+                .border(width = 0.5.dp, color = GreyDivider, shape = RoundedCornerShape(8.dp))
+        )
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            tabs.forEachIndexed { index, title ->
+                val isSelected = selectedTab == index
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) Black else GreyText,
+                    label = "textColor"
                 )
+                
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onTabSelected(index) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
     }
@@ -127,8 +182,8 @@ fun ChatList(chats: List<ChatItemData>) {
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
-        items(chats) { chat ->
-            ChatListItem(chat)
+        items(chats, key = { it.name }) { chat ->
+            ChatListItem(chat, Modifier.animateItem())
             HorizontalDivider(
                 modifier = Modifier.padding(start = 82.dp, end = 16.dp),
                 thickness = 0.5.dp,
@@ -139,10 +194,11 @@ fun ChatList(chats: List<ChatItemData>) {
 }
 
 @Composable
-fun ChatListItem(chat: ChatItemData) {
+fun ChatListItem(chat: ChatItemData, modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
+            .clickable { /* TODO */ }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -201,9 +257,21 @@ fun EmptyChatState() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+        val pulseScale by infiniteTransition.animateFloat(
+            initialValue = 1f,
+            targetValue = 1.05f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1500, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "scale"
+        )
+
         Box(
             modifier = Modifier
                 .size(150.dp)
+                .scale(pulseScale)
                 .clip(CircleShape)
                 .background(RedPastel.copy(alpha = 0.5f)),
             contentAlignment = Alignment.Center
@@ -259,13 +327,10 @@ fun ChatBottomNavigation(selectedIndex: Int, onItemSelected: (Int) -> Unit) {
     NavigationBar(
         containerColor = White,
         tonalElevation = 0.dp,
-        modifier = Modifier.height(80.dp)
+        modifier = Modifier.height(64.dp)
     ) {
         val items = listOf(
-            NavigationItem("Home", Icons.Outlined.Home, Icons.Default.Home),
-            NavigationItem("Today", Icons.Outlined.CalendarToday, Icons.Default.CalendarToday),
-            NavigationItem("Search", Icons.Outlined.Search, Icons.Default.Search),
-            NavigationItem("Chat", Icons.Outlined.Chat, Icons.Default.Chat),
+            NavigationItem("Chat", Icons.AutoMirrored.Outlined.Chat, Icons.AutoMirrored.Filled.Chat),
             NavigationItem("Profile", Icons.Outlined.Person, Icons.Default.Person)
         )
         
@@ -277,10 +342,10 @@ fun ChatBottomNavigation(selectedIndex: Int, onItemSelected: (Int) -> Unit) {
                     Icon(
                         imageVector = if (selectedIndex == index) item.selectedIcon else item.unselectedIcon,
                         contentDescription = item.title,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 },
-                label = { Text(item.title, fontSize = 11.sp, fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Medium) },
+                label = { Text(item.title, fontSize = 10.sp, fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Medium) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = RedPrimary,
                     selectedTextColor = RedPrimary,
@@ -292,6 +357,7 @@ fun ChatBottomNavigation(selectedIndex: Int, onItemSelected: (Int) -> Unit) {
         }
     }
 }
+
 
 data class ChatItemData(
     val name: String,
@@ -316,3 +382,4 @@ fun getMockChats() = listOf(
     ChatItemData("Kevin Chen", "Are you free this weekend?", "17:33"),
     ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12")
 )
+
