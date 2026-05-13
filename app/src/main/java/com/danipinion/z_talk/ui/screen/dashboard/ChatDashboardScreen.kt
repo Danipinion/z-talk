@@ -21,6 +21,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.screen.profile.ProfileScreen
 import com.danipinion.z_talk.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +43,32 @@ fun ChatDashboardScreen(
     onNavigateToProfile: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var searchQuery by remember { mutableStateOf("") }
+    var debouncedSearchQuery by remember { mutableStateOf("") }
+    var isSearchBarVisible by remember { mutableStateOf(false) }
     val chats = remember { getMockChats() }
+    val focusRequester = remember { FocusRequester() }
+    
+    // Debounce search query
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isEmpty()) {
+            debouncedSearchQuery = ""
+        } else {
+            delay(500)
+            debouncedSearchQuery = searchQuery
+        }
+    }
+
+    // Auto-focus when search bar is visible
+    LaunchedEffect(isSearchBarVisible) {
+        if (isSearchBarVisible) {
+            focusRequester.requestFocus()
+        } else {
+            // Smoothly clear search query after the animation completes
+            delay(300)
+            searchQuery = ""
+        }
+    }
     
     // Toggle for empty state demo
     var showEmptyState by remember { mutableStateOf(false) }
@@ -55,7 +83,10 @@ fun ChatDashboardScreen(
             ChatTopBar(
                 onTitleClick = { showEmptyState = !showEmptyState },
                 onAddClick = { showBottomSheet = true },
-                onProfileClick = onNavigateToProfile
+                onProfileClick = onNavigateToProfile,
+                onSearchToggle = { 
+                    isSearchBarVisible = !isSearchBarVisible 
+                }
             )
         },
         containerColor = White
@@ -67,6 +98,50 @@ fun ChatDashboardScreen(
                 .background(White)
         ) {
             ChatFilterTabs(selectedTab) { selectedTab = it }
+            
+            // Simple Search Bar with Toggle
+            AnimatedVisibility(
+                visible = isSearchBarVisible,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .height(52.dp)
+                        .focusRequester(focusRequester),
+                    placeholder = { Text("Search...", fontSize = 14.sp, color = GreyText) },
+                    leadingIcon = { 
+                        Icon(
+                            imageVector = Icons.Default.Search, 
+                            contentDescription = null, 
+                            tint = GreyText,
+                            modifier = Modifier.size(20.dp)
+                        ) 
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = GreyText, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFFF5F5F5),
+                        unfocusedContainerColor = Color(0xFFF5F5F5),
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        cursorColor = RedPrimary,
+                        focusedTextColor = Black,
+                        unfocusedTextColor = Black
+                    ),
+                    singleLine = true
+                )
+            }
             
             AnimatedContent(
                 targetState = showEmptyState,
@@ -83,6 +158,9 @@ fun ChatDashboardScreen(
                         1 -> chats.filter { it.isUnread && !it.isRequest }
                         2 -> chats.filter { it.isRequest }
                         else -> chats.filter { !it.isRequest }
+                    }.filter { 
+                        it.name.contains(debouncedSearchQuery, ignoreCase = true) || 
+                        it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
                     }
                     ChatList(filteredChats, onNavigateToChat)
                 }
@@ -132,9 +210,20 @@ fun ChatDashboardScreen(
 fun ChatTopBar(
     onTitleClick: () -> Unit,
     onAddClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onSearchToggle: () -> Unit
 ) {
     CenterAlignedTopAppBar(
+        navigationIcon = {
+            IconButton(onClick = onSearchToggle) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Toggle Search",
+                    tint = RedPrimary,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        },
         title = {
             Text(
                 text = "Chat",
