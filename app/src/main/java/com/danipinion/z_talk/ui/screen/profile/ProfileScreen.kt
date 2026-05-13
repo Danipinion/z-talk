@@ -32,7 +32,7 @@ import coil.compose.AsyncImage
 import com.danipinion.z_talk.ui.theme.*
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onEditProfile: () -> Unit = {}) {
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
@@ -226,7 +226,7 @@ fun ProfileScreen() {
             ProfileActionItem(
                 icon = Icons.Default.Edit,
                 title = "Edit Profile",
-                onClick = { /* Handle Edit */ }
+                onClick = onEditProfile
             )
             
             ProfileActionItem(

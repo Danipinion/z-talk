@@ -34,12 +34,14 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDashboardScreen(
+    initialBottomNav: Int = 0,
     onNavigateToSearch: () -> Unit = {}, 
     onNavigateToScan: () -> Unit = {},
-    onNavigateToChat: (String) -> Unit = {}
+    onNavigateToChat: (String) -> Unit = {},
+    onNavigateToEditProfile: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedBottomNav by remember { mutableIntStateOf(0) } // 0: Chat, 1: Profile
+    var selectedBottomNav by remember { mutableIntStateOf(initialBottomNav) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
     
     // Toggle for empty state demo
@@ -97,7 +99,7 @@ fun ChatDashboardScreen(
                 // Profile screen handles its own top padding (none) to go under status bar
                 // but needs bottom padding to stay above bottom navigation
                 Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
-                    ProfileScreen()
+                    ProfileScreen(onEditProfile = onNavigateToEditProfile)
                 }
             }
         }
