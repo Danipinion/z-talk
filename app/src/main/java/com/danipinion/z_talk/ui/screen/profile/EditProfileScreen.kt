@@ -1,5 +1,6 @@
 package com.danipinion.z_talk.ui.screen.profile
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import com.danipinion.z_talk.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(onBack: () -> Unit) {
+    BackHandler { onBack() }
     var bio by remember { mutableStateOf("Mobile Developer who focuses on\nsimplicity & aesthetics.") }
 
     Scaffold(

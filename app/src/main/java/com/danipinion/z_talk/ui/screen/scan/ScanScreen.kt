@@ -2,6 +2,7 @@ package com.danipinion.z_talk.ui.screen.scan
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -64,6 +65,14 @@ fun ScanScreen(onBack: () -> Unit) {
 
     var isFlashOn by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Scan, 1: My Code
+
+    BackHandler {
+        if (selectedTab == 1) {
+            selectedTab = 0
+        } else {
+            onBack()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Black)) {
         AnimatedContent(

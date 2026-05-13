@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.animation.Crossfade
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.danipinion.z_talk.ui.screen.dashboard.ChatDashboardScreen
 import com.danipinion.z_talk.ui.screen.search.SearchUserScreen
 import com.danipinion.z_talk.ui.screen.scan.ScanScreen
@@ -35,10 +36,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             ZtalkTheme {
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+                var dashboardTab by rememberSaveable { mutableIntStateOf(0) }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
                         is Screen.Dashboard -> ChatDashboardScreen(
+                            selectedTab = dashboardTab,
+                            onTabSelected = { dashboardTab = it },
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },
                             onNavigateToScan = { currentScreen = Screen.Scan },
                             onNavigateToChat = { username -> currentScreen = Screen.ChatDetail(username) },
@@ -82,6 +86,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DashboardPreview() {
     ZtalkTheme {
-        ChatDashboardScreen()
+        ChatDashboardScreen(selectedTab = 0, onTabSelected = {})
     }
 }

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.view.WindowManager
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -64,6 +65,15 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
         }
         onDispose {
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    // Handle system back button to exit Ghost Mode first, then go back to dashboard
+    BackHandler {
+        if (isTemporaryMode) {
+            isTemporaryMode = false
+        } else {
+            onBack()
         }
     }
 

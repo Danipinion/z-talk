@@ -1,6 +1,7 @@
 package com.danipinion.z_talk.ui.screen.profile
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 
@@ -34,6 +35,7 @@ import com.danipinion.z_talk.ui.theme.*
 
 @Composable
 fun ProfileScreen(onBack: () -> Unit = {}, onEditProfile: () -> Unit = {}) {
+    BackHandler { onBack() }
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")

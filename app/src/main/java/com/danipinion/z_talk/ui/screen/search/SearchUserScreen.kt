@@ -1,5 +1,6 @@
 package com.danipinion.z_talk.ui.screen.search
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import com.danipinion.z_talk.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchUserScreen(onBack: () -> Unit) {
+    BackHandler { onBack() }
     var searchQuery by remember { mutableStateOf("") }
     val dummyUsers = remember { getDummyUsers() }
     val selectedUsers = remember { mutableStateListOf<String>() }
