@@ -79,10 +79,10 @@ fun ChatDashboardScreen(
                 if (targetEmptyState) {
                     EmptyChatState()
                 } else {
-                    val filteredChats = if (selectedTab == 1) {
-                        chats.filter { it.isUnread }
-                    } else {
-                        chats
+                    val filteredChats = when (selectedTab) {
+                        1 -> chats.filter { it.isUnread && !it.isRequest }
+                        2 -> chats.filter { it.isRequest }
+                        else -> chats.filter { !it.isRequest }
                     }
                     ChatList(filteredChats, onNavigateToChat)
                 }
@@ -262,7 +262,7 @@ fun OptionItem(icon: ImageVector, title: String, onClick: () -> Unit) {
 
 @Composable
 fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    val tabs = listOf("All", "Unread")
+    val tabs = listOf("All", "Unread", "Request")
     
     BoxWithConstraints(
         modifier = Modifier
@@ -340,7 +340,7 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick(chat.name) }
+            .clickable(enabled = !chat.isRequest) { onClick(chat.name) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -392,6 +392,40 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
                 maxLines = 1,
                 lineHeight = 20.sp
             )
+        }
+
+        if (chat.isRequest) {
+            Row(
+                modifier = Modifier.padding(start = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(
+                    onClick = { /* Accept */ },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(RedPrimary, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check, 
+                        contentDescription = "Accept", 
+                        tint = White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                IconButton(
+                    onClick = { /* Decline */ },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(Color(0xFFEEEEEE), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close, 
+                        contentDescription = "Decline", 
+                        tint = Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -510,7 +544,8 @@ data class ChatItemData(
     val lastMessage: String,
     val time: String,
     val avatarUrl: String = "",
-    val isUnread: Boolean = false
+    val isUnread: Boolean = false,
+    val isRequest: Boolean = false
 )
 
 data class NavigationItem(
@@ -527,6 +562,8 @@ fun getMockChats() = listOf(
     ChatItemData("Gordon Walker", "Don't forget the deadline.", "01:17", isUnread = false),
     ChatItemData("Roger Jameson", "See you at the gym later. And we can connect later.", "05:12", isUnread = true),
     ChatItemData("Kevin Chen", "Are you free this weekend?", "17:33", isUnread = false),
-    ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12", isUnread = false)
+    ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12", isUnread = false),
+    ChatItemData("Sarah Wilson", "Wants to be your friend", "10:15", isRequest = true),
+    ChatItemData("Michael Scott", "Wants to be your friend", "11:20", isRequest = true)
 )
 
