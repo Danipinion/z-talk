@@ -2,6 +2,9 @@ package com.danipinion.z_talk.ui.screen.profile
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,10 @@ import com.danipinion.z_talk.ui.theme.*
 
 @Composable
 fun ProfileScreen() {
+    var showMoodPicker by remember { mutableStateOf(false) }
+    var selectedMood by remember { mutableStateOf<String?>(null) }
+    val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -53,15 +60,19 @@ fun ProfileScreen() {
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(White.copy(alpha = 0.9f))
-                        .clickable { /* Mood Picker logic */ },
+                        .clickable { showMoodPicker = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add, 
-                        contentDescription = "Add Mood", 
-                        tint = Black,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (selectedMood == null) {
+                        Icon(
+                            imageVector = Icons.Default.Add, 
+                            contentDescription = "Add Mood", 
+                            tint = Black,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text(text = selectedMood!!, fontSize = 24.sp)
+                    }
                 }
             }
 
@@ -205,6 +216,49 @@ fun ProfileScreen() {
         }
         
         Spacer(modifier = Modifier.height(40.dp))
+    }
+
+    // Mood Picker Dialog
+    if (showMoodPicker) {
+        AlertDialog(
+            onDismissRequest = { showMoodPicker = false },
+            confirmButton = {},
+            title = { 
+                Text(
+                    text = "Select your mood", 
+                    fontSize = 20.sp, 
+                    fontWeight = FontWeight.Bold,
+                    color = Black
+                ) 
+            },
+            text = {
+                Box(modifier = Modifier.height(200.dp)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(moods) { mood ->
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(GreyLight)
+                                    .clickable {
+                                        selectedMood = mood
+                                        showMoodPicker = false
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = mood, fontSize = 28.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            containerColor = White,
+            shape = RoundedCornerShape(28.dp)
+        )
     }
 }
 
