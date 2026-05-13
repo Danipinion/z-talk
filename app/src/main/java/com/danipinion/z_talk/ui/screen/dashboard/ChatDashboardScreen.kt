@@ -32,7 +32,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}, onNavigateToScan: () -> Unit = {}) {
+fun ChatDashboardScreen(
+    onNavigateToSearch: () -> Unit = {}, 
+    onNavigateToScan: () -> Unit = {},
+    onNavigateToChat: (String) -> Unit = {}
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedBottomNav by remember { mutableIntStateOf(0) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
@@ -76,7 +80,7 @@ fun ChatDashboardScreen(onNavigateToSearch: () -> Unit = {}, onNavigateToScan: (
                 if (targetEmptyState) {
                     EmptyChatState()
                 } else {
-                    ChatList(chats)
+                    ChatList(chats, onNavigateToChat)
                 }
             }
         }
@@ -290,12 +294,12 @@ fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 }
 
 @Composable
-fun ChatList(chats: List<ChatItemData>) {
+fun ChatList(chats: List<ChatItemData>, onItemClick: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         items(chats, key = { it.name }) { chat ->
-            ChatListItem(chat, Modifier.animateItem())
+            ChatListItem(chat, onItemClick, Modifier.animateItem())
             HorizontalDivider(
                 modifier = Modifier.padding(start = 82.dp, end = 16.dp),
                 thickness = 0.5.dp,
@@ -306,11 +310,11 @@ fun ChatList(chats: List<ChatItemData>) {
 }
 
 @Composable
-fun ChatListItem(chat: ChatItemData, modifier: Modifier = Modifier) {
+fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { /* TODO */ }
+            .clickable { onClick(chat.name) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -16,12 +16,14 @@ import androidx.compose.runtime.*
 import com.danipinion.z_talk.ui.screen.dashboard.ChatDashboardScreen
 import com.danipinion.z_talk.ui.screen.search.SearchUserScreen
 import com.danipinion.z_talk.ui.screen.scan.ScanScreen
+import com.danipinion.z_talk.ui.screen.chat.ChatDetailScreen
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
     object Dashboard : Screen()
     object SearchUser : Screen()
     object Scan : Screen()
+    data class ChatDetail(val username: String) : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -36,12 +38,17 @@ class MainActivity : ComponentActivity() {
                     when (screen) {
                         is Screen.Dashboard -> ChatDashboardScreen(
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },
-                            onNavigateToScan = { currentScreen = Screen.Scan }
+                            onNavigateToScan = { currentScreen = Screen.Scan },
+                            onNavigateToChat = { username -> currentScreen = Screen.ChatDetail(username) }
                         )
                         is Screen.SearchUser -> SearchUserScreen(
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.Scan -> ScanScreen(
+                            onBack = { currentScreen = Screen.Dashboard }
+                        )
+                        is Screen.ChatDetail -> ChatDetailScreen(
+                            username = screen.username,
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                     }
@@ -50,6 +57,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 
 
 
