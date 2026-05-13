@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -162,7 +163,12 @@ fun ChatDashboardScreen(
                         it.name.contains(debouncedSearchQuery, ignoreCase = true) || 
                         it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
                     }
-                    ChatList(filteredChats, onNavigateToChat)
+
+                    if (filteredChats.isEmpty() && debouncedSearchQuery.isNotEmpty()) {
+                        EmptySearchState(debouncedSearchQuery)
+                    } else {
+                        ChatList(filteredChats, onNavigateToChat)
+                    }
                 }
             }
         }
@@ -642,6 +648,63 @@ data class NavigationItem(
     val unselectedIcon: ImageVector,
     val selectedIcon: ImageVector
 )
+
+@Composable
+fun EmptySearchState(query: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Spacer(modifier = Modifier.height(100.dp)) // Push it up from the center
+
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clip(CircleShape)
+                .background(GreyLight.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "🔎",
+                    fontSize = 52.sp,
+                    modifier = Modifier.graphicsLayer(alpha = 0.4f)
+                )
+                Text(
+                    text = "❌",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .offset(x = 14.dp, y = 14.dp)
+                        .graphicsLayer(alpha = 0.5f)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(20.dp)) // Reduced spacing
+        
+        Text(
+            text = "No matches for \"$query\"",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Black,
+            textAlign = TextAlign.Center
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Double-check the spelling or try searching for someone else in your list.",
+            fontSize = 14.sp,
+            color = GreyText,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+    }
+}
+
 
 fun getMockChats() = listOf(
     ChatItemData("Devon Robinson", "Let's catch up tomorrow.", "08:00", isUnread = true),
