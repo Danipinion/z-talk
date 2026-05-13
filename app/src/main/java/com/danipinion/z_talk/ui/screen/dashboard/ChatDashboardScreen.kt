@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.danipinion.z_talk.ui.screen.profile.ProfileScreen
 import com.danipinion.z_talk.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -51,36 +52,52 @@ fun ChatDashboardScreen(
 
     Scaffold(
         topBar = {
-            ChatTopBar(
-                onTitleClick = { showEmptyState = !showEmptyState },
-                onAddClick = { showBottomSheet = true }
-            )
+            if (selectedBottomNav == 0) {
+                ChatTopBar(
+                    onTitleClick = { showEmptyState = !showEmptyState },
+                    onAddClick = { showBottomSheet = true }
+                )
+            }
         },
         bottomBar = {
             ChatBottomNavigation(selectedBottomNav) { selectedBottomNav = it }
         },
         containerColor = White
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .background(White)
-        ) {
-            ChatFilterTabs(selectedTab) { selectedTab = it }
-            
-            AnimatedContent(
-                targetState = showEmptyState,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
-                        .togetherWith(fadeOut(animationSpec = tween(400)))
-                },
-                label = "contentTransition"
-            ) { targetEmptyState ->
-                if (targetEmptyState) {
-                    EmptyChatState()
-                } else {
-                    ChatList(chats, onNavigateToChat)
+        Crossfade(
+            targetState = selectedBottomNav,
+            modifier = Modifier.fillMaxSize(),
+            label = "mainContent"
+        ) { navIndex ->
+            if (navIndex == 0) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .background(White)
+                ) {
+                    ChatFilterTabs(selectedTab) { selectedTab = it }
+                    
+                    AnimatedContent(
+                        targetState = showEmptyState,
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
+                                .togetherWith(fadeOut(animationSpec = tween(400)))
+                        },
+                        label = "contentTransition"
+                    ) { targetEmptyState ->
+                        if (targetEmptyState) {
+                            EmptyChatState()
+                        } else {
+                            ChatList(chats, onNavigateToChat)
+                        }
+                    }
+                }
+            } else {
+                // Profile screen handles its own top padding (none) to go under status bar
+                // but needs bottom padding to stay above bottom navigation
+                Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
+                    ProfileScreen()
                 }
             }
         }
