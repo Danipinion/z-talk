@@ -5,7 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -91,17 +91,28 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp) // Tighter spacing for grouped messages
         ) {
-            items(messages) { message ->
-                ChatBubble(message)
+            itemsIndexed(messages) { index, message ->
+                val prevMessage = if (index > 0) messages[index - 1] else null
+                val nextMessage = if (index + 1 < messages.size) messages[index + 1] else null
+                
+                val isFirstInGroup = prevMessage == null || prevMessage.isFromMe != message.isFromMe
+                val isLastInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
+                
+                // Add extra spacing before a new group starts
+                if (isFirstInGroup && index > 0) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                
+                ChatBubble(message, showAvatar = isLastInGroup && !message.isFromMe)
             }
         }
     }
 }
 
 @Composable
-fun ChatBubble(message: Message) {
+fun ChatBubble(message: Message, showAvatar: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (message.isFromMe) Alignment.End else Alignment.Start
@@ -111,20 +122,25 @@ fun ChatBubble(message: Message) {
             horizontalArrangement = if (message.isFromMe) Arrangement.End else Arrangement.Start
         ) {
             if (!message.isFromMe) {
-                // Dummy Avatar
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(GreyDivider),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "A", // Placeholder
-                        color = Black, 
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                if (showAvatar) {
+                    // Dummy Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(GreyDivider),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "A", // Placeholder
+                            color = Black, 
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                } else {
+                    // Space for hidden avatar to keep alignment
+                    Spacer(modifier = Modifier.size(32.dp))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -170,24 +186,6 @@ fun ChatInputBar(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Plus Button
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2C2C2C))
-                    .clickable { /* Action */ },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add, 
-                    contentDescription = "Add", 
-                    tint = White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
 
             // Input Field
             Surface(
@@ -215,12 +213,6 @@ fun ChatInputBar(
                         }
                     )
                     
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice",
-                        tint = GreyText,
-                        modifier = Modifier.size(20.dp)
-                    )
                 }
             }
 
@@ -248,8 +240,11 @@ fun ChatInputBar(
 
 fun getDummyMessages(): List<Message> = listOf(
     Message(1, "How's the tour plan for the summer vacation?", false),
-    Message(2, "Yeah, I was thinking we could explore the West Coast this year.", true),
-    Message(3, "That sounds awesome! I've always wanted to see the Golden Gate Bridge", false),
-    Message(4, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true),
-    Message(5, "That sounds perfect. What do you want to do in San Francisco?", false)
+    Message(2, "vocation?", false),
+    Message(3, "Yeah, I was thinking we could explore the West Coast this year.", true),
+    Message(4, "Hey Olivia! have you thought about our tour plan for the summer vocation?", false),
+    Message(5, "Yeah, I was thinking we could explore the West Coast this year.", true),
+    Message(6, "That sounds awesome! I've always wanted to see the Golden Gate Bridge", false),
+    Message(7, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true),
+    Message(8, "That sounds perfect. What do you want to do in San Francisco?", false)
 )
