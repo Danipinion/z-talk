@@ -1,5 +1,9 @@
 package com.danipinion.z_talk.ui.screen.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -19,10 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.danipinion.z_talk.ui.theme.*
 
 @Composable
@@ -30,6 +36,13 @@ fun ProfileScreen() {
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
+
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+    }
 
     Column(
         modifier = Modifier
@@ -105,13 +118,22 @@ fun ProfileScreen() {
                         .background(GreyLight),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Placeholder Image or Initial
-                    Text(
-                        text = "D",
-                        fontSize = 40.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Black
-                    )
+                    if (imageUri != null) {
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "Profile Photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // Placeholder Image or Initial
+                        Text(
+                            text = "D",
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Black
+                        )
+                    }
                 }
 
                 // Camera Shortcut (Floating above border)
@@ -125,7 +147,7 @@ fun ProfileScreen() {
                         .clip(CircleShape)
                         .background(White)
                         .border(1.dp, GreyDivider, CircleShape)
-                        .clickable { /* Edit photo */ },
+                        .clickable { photoPickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
