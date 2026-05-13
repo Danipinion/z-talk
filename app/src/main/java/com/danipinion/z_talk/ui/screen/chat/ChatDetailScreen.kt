@@ -1,5 +1,9 @@
 package com.danipinion.z_talk.ui.screen.chat
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -48,6 +53,20 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     var isTemporaryMode by remember { mutableStateOf(false) }
     var activeGhostId by remember { mutableIntStateOf(-1) }
     
+    // Screenshot Protection (FLAG_SECURE) logic
+    val context = LocalContext.current
+    DisposableEffect(isTemporaryMode) {
+        val activity = context.findActivity()
+        if (isTemporaryMode) {
+            activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     // Auto scroll to bottom
     val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
     LaunchedEffect(allMessages.size, isKeyboardVisible, isTemporaryMode) {
@@ -391,3 +410,9 @@ fun getDummyMessages(): List<Message> = listOf(
     Message(7, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true, isUnread = true),
     Message(8, "That sounds perfect. What do you want to do in San Francisco?", false, isUnread = true)
 )
+
+private fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
