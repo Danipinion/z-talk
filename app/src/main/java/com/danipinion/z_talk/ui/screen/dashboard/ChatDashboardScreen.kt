@@ -34,14 +34,12 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDashboardScreen(
-    initialBottomNav: Int = 0,
     onNavigateToSearch: () -> Unit = {}, 
     onNavigateToScan: () -> Unit = {},
     onNavigateToChat: (String) -> Unit = {},
-    onNavigateToEditProfile: () -> Unit = {}
+    onNavigateToProfile: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedBottomNav by remember { mutableIntStateOf(initialBottomNav) } // 0: Chat, 1: Profile
     val chats = remember { getMockChats() }
     
     // Toggle for empty state demo
@@ -54,52 +52,34 @@ fun ChatDashboardScreen(
 
     Scaffold(
         topBar = {
-            if (selectedBottomNav == 0) {
-                ChatTopBar(
-                    onTitleClick = { showEmptyState = !showEmptyState },
-                    onAddClick = { showBottomSheet = true }
-                )
-            }
-        },
-        bottomBar = {
-            ChatBottomNavigation(selectedBottomNav) { selectedBottomNav = it }
+            ChatTopBar(
+                onTitleClick = { showEmptyState = !showEmptyState },
+                onAddClick = { showBottomSheet = true },
+                onProfileClick = onNavigateToProfile
+            )
         },
         containerColor = White
     ) { paddingValues ->
-        Crossfade(
-            targetState = selectedBottomNav,
-            modifier = Modifier.fillMaxSize(),
-            label = "mainContent"
-        ) { navIndex ->
-            if (navIndex == 0) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .background(White)
-                ) {
-                    ChatFilterTabs(selectedTab) { selectedTab = it }
-                    
-                    AnimatedContent(
-                        targetState = showEmptyState,
-                        transitionSpec = {
-                            (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
-                                .togetherWith(fadeOut(animationSpec = tween(400)))
-                        },
-                        label = "contentTransition"
-                    ) { targetEmptyState ->
-                        if (targetEmptyState) {
-                            EmptyChatState()
-                        } else {
-                            ChatList(chats, onNavigateToChat)
-                        }
-                    }
-                }
-            } else {
-                // Profile screen handles its own top padding (none) to go under status bar
-                // but needs bottom padding to stay above bottom navigation
-                Box(modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())) {
-                    ProfileScreen(onEditProfile = onNavigateToEditProfile)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(White)
+        ) {
+            ChatFilterTabs(selectedTab) { selectedTab = it }
+            
+            AnimatedContent(
+                targetState = showEmptyState,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
+                        .togetherWith(fadeOut(animationSpec = tween(400)))
+                },
+                label = "contentTransition"
+            ) { targetEmptyState ->
+                if (targetEmptyState) {
+                    EmptyChatState()
+                } else {
+                    ChatList(chats, onNavigateToChat)
                 }
             }
         }
@@ -144,8 +124,12 @@ fun ChatDashboardScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatTopBar(onTitleClick: () -> Unit = {}, onAddClick: () -> Unit = {}) {
-    TopAppBar(
+fun ChatTopBar(
+    onTitleClick: () -> Unit,
+    onAddClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    CenterAlignedTopAppBar(
         title = {
             Text(
                 text = "Chat",
@@ -168,6 +152,24 @@ fun ChatTopBar(onTitleClick: () -> Unit = {}, onAddClick: () -> Unit = {}) {
                     contentDescription = "New Chat",
                     tint = RedPrimary,
                     modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Profile Avatar Entry
+            Box(
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(RedPastel)
+                    .clickable { onProfileClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "D",
+                    color = RedPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
                 )
             }
         },

@@ -20,11 +20,12 @@ import com.danipinion.z_talk.ui.screen.chat.ChatDetailScreen
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
-    data class Dashboard(val initialTab: Int = 0) : Screen()
+    object Dashboard : Screen()
     object SearchUser : Screen()
     object Scan : Screen()
     data class ChatDetail(val username: String) : Screen()
     object EditProfile : Screen()
+    object Profile : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -33,31 +34,36 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZtalkTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard()) }
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
                         is Screen.Dashboard -> ChatDashboardScreen(
-                            initialBottomNav = screen.initialTab,
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },
                             onNavigateToScan = { currentScreen = Screen.Scan },
                             onNavigateToChat = { username -> currentScreen = Screen.ChatDetail(username) },
-                            onNavigateToEditProfile = { currentScreen = Screen.EditProfile }
+                            onNavigateToProfile = { currentScreen = Screen.Profile }
                         )
                         is Screen.SearchUser -> SearchUserScreen(
-                            onBack = { currentScreen = Screen.Dashboard() }
+                            onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.Scan -> ScanScreen(
-                            onBack = { currentScreen = Screen.Dashboard() }
+                            onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.ChatDetail -> ChatDetailScreen(
                             username = screen.username,
-                            onBack = { currentScreen = Screen.Dashboard() }
+                            onBack = { currentScreen = Screen.Dashboard }
                         )
+                        is Screen.Profile -> {
+                            com.danipinion.z_talk.ui.screen.profile.ProfileScreen(
+                                onBack = { currentScreen = Screen.Dashboard },
+                                onEditProfile = { currentScreen = Screen.EditProfile }
+                            )
+                        }
                         is Screen.EditProfile -> {
                             // We'll create this screen next
                             com.danipinion.z_talk.ui.screen.profile.EditProfileScreen(
-                                onBack = { currentScreen = Screen.Dashboard(initialTab = 1) }
+                                onBack = { currentScreen = Screen.Profile }
                             )
                         }
                     }

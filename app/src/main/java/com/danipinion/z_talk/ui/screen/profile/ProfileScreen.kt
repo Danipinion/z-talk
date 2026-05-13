@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -32,7 +33,7 @@ import coil.compose.AsyncImage
 import com.danipinion.z_talk.ui.theme.*
 
 @Composable
-fun ProfileScreen(onEditProfile: () -> Unit = {}) {
+fun ProfileScreen(onBack: () -> Unit = {}, onEditProfile: () -> Unit = {}) {
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
@@ -66,6 +67,26 @@ fun ProfileScreen(onEditProfile: () -> Unit = {}) {
                     .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
                     .background(Color(0xFFDEEBF7)) // Light cloud blue
             ) {
+                // Back Button
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(16.dp)
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(White.copy(alpha = 0.9f))
+                        .clickable { onBack() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft, 
+                        contentDescription = "Back", 
+                        tint = Black,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 // Mood Button (+)
                 Box(
                     modifier = Modifier
