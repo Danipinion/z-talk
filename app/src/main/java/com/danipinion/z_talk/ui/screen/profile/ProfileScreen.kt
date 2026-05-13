@@ -37,6 +37,8 @@ fun ProfileScreen(onEditProfile: () -> Unit = {}) {
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
 
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -233,11 +235,51 @@ fun ProfileScreen(onEditProfile: () -> Unit = {}) {
                 icon = Icons.AutoMirrored.Filled.Logout,
                 title = "Logout",
                 isDestructive = true,
-                onClick = { /* Handle Logout */ }
+                onClick = { showLogoutDialog = true }
             )
         }
         
         Spacer(modifier = Modifier.height(40.dp))
+    }
+
+    // Logout Confirmation Dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { 
+                Text(
+                    text = "Logout Account", 
+                    fontSize = 20.sp, 
+                    fontWeight = FontWeight.Bold,
+                    color = Black
+                ) 
+            },
+            text = { 
+                Text(
+                    text = "Are you sure you want to logout from Z-Talk? You'll need to sign in again to access your chats.",
+                    fontSize = 15.sp,
+                    color = GreyText
+                ) 
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showLogoutDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Yes, Logout", color = White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false }
+                ) {
+                    Text("Cancel", color = GreyText, fontWeight = FontWeight.Medium)
+                }
+            },
+            containerColor = White,
+            shape = RoundedCornerShape(28.dp)
+        )
     }
 
     // Mood Picker Dialog
