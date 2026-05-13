@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -37,6 +38,15 @@ data class Message(
 fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     val messages = remember { getDummyMessages() }
     var textState by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    
+    // Auto scroll to bottom when keyboard appears or messages change
+    val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
+    LaunchedEffect(messages.size, isKeyboardVisible) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -87,6 +97,7 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
         containerColor = White
     ) { paddingValues ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
@@ -176,6 +187,7 @@ fun ChatInputBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .imePadding()
             .navigationBarsPadding(),
         color = White,
         tonalElevation = 2.dp
