@@ -30,7 +30,8 @@ import com.danipinion.z_talk.ui.theme.*
 data class Message(
     val id: Int,
     val text: String,
-    val isFromMe: Boolean
+    val isFromMe: Boolean,
+    val isUnread: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +48,9 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
+
+    val unreadCount = remember(messages) { messages.count { it.isUnread } }
+    val firstUnreadIndex = remember(messages) { messages.indexOfFirst { it.isUnread } }
 
     Scaffold(
         topBar = {
@@ -102,9 +106,13 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(paddingValues),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp) // Tighter spacing for grouped messages
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             itemsIndexed(messages) { index, message ->
+                if (index == firstUnreadIndex && unreadCount > 0) {
+                    UnreadSeparator(unreadCount)
+                }
+                
                 val prevMessage = if (index > 0) messages[index - 1] else null
                 val nextMessage = if (index + 1 < messages.size) messages[index + 1] else null
                 
@@ -112,13 +120,47 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                 val isLastInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
                 
                 // Add extra spacing before a new group starts
-                if (isFirstInGroup && index > 0) {
+                if (isFirstInGroup && index > 0 && index != firstUnreadIndex) {
                     Spacer(modifier = Modifier.height(12.dp))
                 }
                 
                 ChatBubble(message, showAvatar = isLastInGroup && !message.isFromMe)
             }
         }
+    }
+}
+
+@Composable
+fun UnreadSeparator(count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            thickness = 1.dp,
+            color = Color(0xFFEEEEEE)
+        )
+        Surface(
+            color = Color(0xFFF7F7F7),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp)
+        ) {
+            Text(
+                text = "$count New Messages",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = GreyText
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            thickness = 1.dp,
+            color = Color(0xFFEEEEEE)
+        )
     }
 }
 
@@ -256,7 +298,7 @@ fun getDummyMessages(): List<Message> = listOf(
     Message(3, "Yeah, I was thinking we could explore the West Coast this year.", true),
     Message(4, "Hey Olivia! have you thought about our tour plan for the summer vocation?", false),
     Message(5, "Yeah, I was thinking we could explore the West Coast this year.", true),
-    Message(6, "That sounds awesome! I've always wanted to see the Golden Gate Bridge", false),
-    Message(7, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true),
-    Message(8, "That sounds perfect. What do you want to do in San Francisco?", false)
+    Message(6, "That sounds awesome! I've always wanted to see the Golden Gate Bridge", false, isUnread = true),
+    Message(7, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true, isUnread = true),
+    Message(8, "That sounds perfect. What do you want to do in San Francisco?", false, isUnread = true)
 )
