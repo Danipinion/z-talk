@@ -79,7 +79,12 @@ fun ChatDashboardScreen(
                 if (targetEmptyState) {
                     EmptyChatState()
                 } else {
-                    ChatList(chats, onNavigateToChat)
+                    val filteredChats = if (selectedTab == 1) {
+                        chats.filter { it.isUnread }
+                    } else {
+                        chats
+                    }
+                    ChatList(filteredChats, onNavigateToChat)
                 }
             }
         }
@@ -369,11 +374,15 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
                     fontSize = 17.sp,
                     color = Black
                 )
-                Text(
-                    text = chat.time,
-                    fontSize = 13.sp,
-                    color = GreyText
-                )
+                
+                if (chat.isUnread) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(RedPrimary)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -500,7 +509,8 @@ data class ChatItemData(
     val name: String,
     val lastMessage: String,
     val time: String,
-    val avatarUrl: String = ""
+    val avatarUrl: String = "",
+    val isUnread: Boolean = false
 )
 
 data class NavigationItem(
@@ -510,13 +520,13 @@ data class NavigationItem(
 )
 
 fun getMockChats() = listOf(
-    ChatItemData("Devon Robinson", "Let's catch up tomorrow.", "08:00"),
-    ChatItemData("Zane Barber", "Can you send the files?", "02:03"),
-    ChatItemData("Andre James", "Meeting rescheduled to 11 AM.", "00:05"),
-    ChatItemData("Luboš Volkov", "Looking forward to the event!", "02:45"),
-    ChatItemData("Gordon Walker", "Don't forget the deadline.", "01:17"),
-    ChatItemData("Roger Jameson", "See you at the gym later. And we can connect later.", "05:12"),
-    ChatItemData("Kevin Chen", "Are you free this weekend?", "17:33"),
-    ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12")
+    ChatItemData("Devon Robinson", "Let's catch up tomorrow.", "08:00", isUnread = true),
+    ChatItemData("Zane Barber", "Can you send the files?", "02:03", isUnread = false),
+    ChatItemData("Andre James", "Meeting rescheduled to 11 AM.", "00:05", isUnread = true),
+    ChatItemData("Luboš Volkov", "Looking forward to the event!", "02:45", isUnread = false),
+    ChatItemData("Gordon Walker", "Don't forget the deadline.", "01:17", isUnread = false),
+    ChatItemData("Roger Jameson", "See you at the gym later. And we can connect later.", "05:12", isUnread = true),
+    ChatItemData("Kevin Chen", "Are you free this weekend?", "17:33", isUnread = false),
+    ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12", isUnread = false)
 )
 
