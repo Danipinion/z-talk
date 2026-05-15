@@ -5,7 +5,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -24,12 +26,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.danipinion.z_talk.ui.theme.*
 import kotlinx.coroutines.delay
 
@@ -43,7 +52,7 @@ data class Message(
     val isUsed: Boolean = false
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     val allMessages = remember { mutableStateListOf<Message>().apply { addAll(getDummyMessages()) } }
@@ -53,6 +62,12 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     var isGhostMode by remember { mutableStateOf(false) }
     var isTemporaryMode by remember { mutableStateOf(false) }
     var activeGhostId by remember { mutableIntStateOf(-1) }
+    var showMenu by remember { mutableStateOf(false) }
+    var isMenuVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showMenu) {
+        if (showMenu) isMenuVisible = true
+    }
     
     // Screenshot Protection (FLAG_SECURE) logic
     val context = LocalContext.current
@@ -100,13 +115,95 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = if (isTemporaryMode) "Ghost Session" else username,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isTemporaryMode) RedPrimary else Black
-                        )  
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .combinedClickable(
+                                        onLongClick = { if (!isTemporaryMode) showMenu = true },
+                                        onClick = { /* Could open profile */ }
+                                    )
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = if (isTemporaryMode) "Ghost Session" else username,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isTemporaryMode) RedPrimary else Black
+                                )  
+                            }
+
+                            if (showMenu) {
+                                val density = LocalDensity.current
+                                Popup(
+                                    onDismissRequest = { isMenuVisible = false },
+                                    offset = IntOffset(0, with(density) { 60.dp.roundToPx() }), // Lowered position
+                                    alignment = Alignment.BottomCenter,
+                                    properties = PopupProperties(focusable = true)
+                                ) {
+                                    AnimatedVisibility(
+                                        visible = isMenuVisible,
+                                        enter = fadeIn() + scaleIn(transformOrigin = TransformOrigin(0.5f, 0f)),
+                                        exit = fadeOut() + scaleOut(transformOrigin = TransformOrigin(0.5f, 0f))
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier.width(220.dp),
+                                            shape = RoundedCornerShape(18.dp),
+                                            color = White,
+                                            border = BorderStroke(0.5.dp, Color(0xFFEEEEEE)),
+                                            shadowElevation = 0.dp
+                                        ) {
+                                            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Search in Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
+                                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
+                                                    onClick = { isMenuVisible = false }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Mute Notifications", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
+                                                    leadingIcon = { Icon(Icons.Default.NotificationsOff, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
+                                                    onClick = { isMenuVisible = false }
+                                                )
+                                                
+                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
+
+                                                DropdownMenuItem(
+                                                    text = { Text("Clear Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
+                                                    leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
+                                                    onClick = { 
+                                                        allMessages.clear()
+                                                        isMenuVisible = false 
+                                                    }
+                                                )
+                                                
+                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
+                                                
+                                                DropdownMenuItem(
+                                                    text = { Text("Remove Friend", color = RedPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) },
+                                                    leadingIcon = { Icon(Icons.Default.PersonRemove, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(22.dp)) },
+                                                    onClick = { isMenuVisible = false }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Block User", color = RedPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) },
+                                                    leadingIcon = { Icon(Icons.Default.Block, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(22.dp)) },
+                                                    onClick = { isMenuVisible = false }
+                                                )
+                                            }
+                                        }
+
+                                        // Cleanup showMenu after exit animation
+                                        LaunchedEffect(isMenuVisible) {
+                                            if (!isMenuVisible) {
+                                                delay(300) // Wait for exit animation to complete
+                                                showMenu = false
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 navigationIcon = {
