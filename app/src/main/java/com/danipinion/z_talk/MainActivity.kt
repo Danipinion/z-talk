@@ -18,9 +18,15 @@ import com.danipinion.z_talk.ui.screen.dashboard.ChatDashboardScreen
 import com.danipinion.z_talk.ui.screen.search.SearchUserScreen
 import com.danipinion.z_talk.ui.screen.scan.ScanScreen
 import com.danipinion.z_talk.ui.screen.chat.ChatDetailScreen
+import com.danipinion.z_talk.ui.screen.auth.LoginScreen
+import com.danipinion.z_talk.ui.screen.auth.RegisterScreen
+import com.danipinion.z_talk.ui.screen.auth.ForgotPasswordScreen
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
+    object Login : Screen()
+    object Register : Screen()
+    object ForgotPassword : Screen()
     object Dashboard : Screen()
     object SearchUser : Screen()
     object Scan : Screen()
@@ -35,11 +41,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZtalkTheme {
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+                var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
                 var dashboardTab by rememberSaveable { mutableIntStateOf(0) }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
+                        is Screen.Login -> LoginScreen(
+                            onLoginSuccess = { currentScreen = Screen.Dashboard },
+                            onNavigateToRegister = { currentScreen = Screen.Register },
+                            onNavigateToForgotPassword = { currentScreen = Screen.ForgotPassword }
+                        )
+                        is Screen.Register -> RegisterScreen(
+                            onRegisterSuccess = { currentScreen = Screen.Login },
+                            onNavigateToLogin = { currentScreen = Screen.Login }
+                        )
+                        is Screen.ForgotPassword -> ForgotPasswordScreen(
+                            onBackToLogin = { currentScreen = Screen.Login }
+                        )
                         is Screen.Dashboard -> ChatDashboardScreen(
                             selectedTab = dashboardTab,
                             onTabSelected = { dashboardTab = it },
