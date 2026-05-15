@@ -73,6 +73,13 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     var showBlockUserDialog by remember { mutableStateOf(false) }
     var isBlockDialogVisible by remember { mutableStateOf(false) }
     var isBlocked by remember { mutableStateOf(false) }
+    var isBlockedByOther by remember { mutableStateOf(false) }
+    var isRemovedByOther by remember { mutableStateOf(false) }
+    var isRequestPending by remember { mutableStateOf(false) }
+    var showDeleteChatDialog by remember { mutableStateOf(false) }
+    var isDeleteChatDialogVisible by remember { mutableStateOf(false) }
+    var showAddFriendConfirmDialog by remember { mutableStateOf(false) }
+    var isAddFriendDialogVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -86,6 +93,14 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
 
     LaunchedEffect(showBlockUserDialog) {
         if (showBlockUserDialog) isBlockDialogVisible = true
+    }
+
+    LaunchedEffect(showDeleteChatDialog) {
+        if (showDeleteChatDialog) isDeleteChatDialogVisible = true
+    }
+
+    LaunchedEffect(showAddFriendConfirmDialog) {
+        if (showAddFriendConfirmDialog) isAddFriendDialogVisible = true
     }
     
     // Screenshot Protection (FLAG_SECURE) logic
@@ -232,6 +247,23 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                                         }
                                                     }
                                                 )
+
+                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
+
+                                                DropdownMenuItem(
+                                                    text = { Text("Simulate: They Block Me", fontSize = 13.sp, color = Color.Gray) },
+                                                    onClick = { 
+                                                        isBlockedByOther = !isBlockedByOther
+                                                        isMenuVisible = false
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Simulate: They Remove Me", fontSize = 13.sp, color = Color.Gray) },
+                                                    onClick = { 
+                                                        isRemovedByOther = !isRemovedByOther
+                                                        isMenuVisible = false
+                                                    }
+                                                )
                                             }
                                         }
 
@@ -285,10 +317,10 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                     )
                                 )
                             },
-                            enabled = !isBlocked,
+                            enabled = !isBlocked && !isBlockedByOther && !isRemovedByOther,
                             modifier = Modifier
                                 .padding(end = 8.dp)
-                                .then(if (isBlocked) Modifier.alpha(0.5f) else Modifier)
+                                .then(if (isBlocked || isBlockedByOther || isRemovedByOther) Modifier.alpha(0.5f) else Modifier)
                         ) {
                             Text("👻", fontSize = 22.sp)
                         }
@@ -342,25 +374,93 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
         },
 
         bottomBar = {
-            ChatInputBar(
-                text = textState,
-                onTextChange = { textState = it },
-                onSend = { 
-                    if (textState.isNotBlank()) {
-                        allMessages.add(
-                            Message(
-                                id = allMessages.size + 1,
-                                text = textState,
-                                isFromMe = true,
-                                isGhost = isGhostMode,
-                                isTemporary = isTemporaryMode
-                            )
+            if (isRemovedByOther) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding(),
+                    color = White,
+                    tonalElevation = 8.dp,
+                    border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isRequestPending) "Friend request sent!" else "You are no longer friends",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Black
                         )
-                        textState = ""
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isRequestPending) 
+                                "Waiting for $username to accept your invitation." 
+                                else "Add $username back to start chatting again.",
+                            fontSize = 13.sp,
+                            color = GreyText,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (isRequestPending) {
+                                Button(
+                                    onClick = { 
+                                        isRequestPending = false 
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Black)
+                                ) {
+                                    Text("Cancel Request")
+                                }
+                            } else {
+                                Button(
+                                    onClick = { showDeleteChatDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF5F5F5), contentColor = Black)
+                                ) {
+                                    Text("Delete Chat")
+                                }
+                                Button(
+                                    onClick = { showAddFriendConfirmDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White)
+                                ) {
+                                    Text("Add Friend")
+                                }
+                            }
+                        }
                     }
-                },
-                enabled = !isBlocked
-            )
+                }
+            } else {
+                ChatInputBar(
+                    text = textState,
+                    onTextChange = { textState = it },
+                    onSend = { 
+                        if (textState.isNotBlank()) {
+                            allMessages.add(
+                                Message(
+                                    id = allMessages.size + 1,
+                                    text = textState,
+                                    isFromMe = true,
+                                    isGhost = isGhostMode,
+                                    isTemporary = isTemporaryMode
+                                )
+                            )
+                            textState = ""
+                        }
+                    },
+                    enabled = !isBlocked && !isBlockedByOther,
+                    disabledReason = if (isBlockedByOther) "You cannot send messages to this contact" else null
+                )
+            }
         },
         containerColor = White
     ) { paddingValues ->
@@ -553,12 +653,8 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                     Button(
                                         onClick = { 
                                             isDialogVisible = false
-                                            scope.launch {
-                                                delay(200)
-                                                snackbarHostState.showSnackbar("$username removed from friends")
-                                                delay(1500)
-                                                onBack()
-                                            }
+                                            showRemoveFriendDialog = false
+                                            onBack()
                                         },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
@@ -704,6 +800,240 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                             if (!isBlockDialogVisible) {
                                 delay(300)
                                 showBlockUserDialog = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Delete Chat Confirmation Dialog
+        if (showDeleteChatDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { isDeleteChatDialogVisible = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = false) {}
+                    )
+
+                    AnimatedVisibility(
+                        visible = isDeleteChatDialogVisible,
+                        enter = fadeIn() + scaleIn(initialScale = 0.9f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.9f)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(horizontal = 32.dp)
+                                .widthIn(max = 320.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = White,
+                            tonalElevation = 2.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(64.dp),
+                                    shape = CircleShape,
+                                    color = RedPrimary.copy(alpha = 0.1f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = RedPrimary,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    text = "Delete Conversation?",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Black
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "This will permanently delete your chat with $username from your device.",
+                                    fontSize = 14.sp,
+                                    color = GreyText,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(32.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Button(
+                                        onClick = { isDeleteChatDialogVisible = false },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFFF5F5F5),
+                                            contentColor = GreyText
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Cancel", fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    Button(
+                                        onClick = { 
+                                            isDeleteChatDialogVisible = false
+                                            onBack()
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = RedPrimary,
+                                            contentColor = White
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Delete", fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+
+                        LaunchedEffect(isDeleteChatDialogVisible) {
+                            if (!isDeleteChatDialogVisible) {
+                                delay(300)
+                                showDeleteChatDialog = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add Friend Confirmation Dialog
+        if (showAddFriendConfirmDialog) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { isAddFriendDialogVisible = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = false) {}
+                    )
+
+                    AnimatedVisibility(
+                        visible = isAddFriendDialogVisible,
+                        enter = fadeIn() + scaleIn(initialScale = 0.9f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.9f)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(horizontal = 32.dp)
+                                .widthIn(max = 320.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = White,
+                            tonalElevation = 2.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(64.dp),
+                                    shape = CircleShape,
+                                    color = Color(0xFF4CAF50).copy(alpha = 0.1f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.PersonAdd,
+                                            contentDescription = null,
+                                            tint = Color(0xFF4CAF50),
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    text = "Send Friend Request?",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Black
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "Send a new friend request to $username to start communicating again.",
+                                    fontSize = 14.sp,
+                                    color = GreyText,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(32.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Button(
+                                        onClick = { isAddFriendDialogVisible = false },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFFF5F5F5),
+                                            contentColor = GreyText
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Cancel", fontWeight = FontWeight.SemiBold)
+                                    }
+
+                                    Button(
+                                        onClick = { 
+                                            isAddFriendDialogVisible = false
+                                            isRequestPending = true 
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF4CAF50),
+                                            contentColor = White
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Send", fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+
+                        LaunchedEffect(isAddFriendDialogVisible) {
+                            if (!isAddFriendDialogVisible) {
+                                delay(300)
+                                showAddFriendConfirmDialog = false
                             }
                         }
                     }
@@ -861,7 +1191,8 @@ fun ChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    disabledReason: String? = null
 ) {
     Surface(
         modifier = Modifier
@@ -896,7 +1227,7 @@ fun ChatInputBar(
                     decorationBox = { innerTextField ->
                         if (text.isEmpty()) {
                             Text(
-                                text = if (enabled) "Type here..." else "You have blocked this contact", 
+                                text = if (enabled) "Type here..." else (disabledReason ?: "You have blocked this contact"), 
                                 color = GreyText, 
                                 fontSize = 15.sp
                             )
