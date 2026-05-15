@@ -41,6 +41,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.danipinion.z_talk.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class Message(
     val id: Int,
@@ -64,6 +65,8 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     var activeGhostId by remember { mutableIntStateOf(-1) }
     var showMenu by remember { mutableStateOf(false) }
     var isMenuVisible by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(showMenu) {
         if (showMenu) isMenuVisible = true
@@ -175,6 +178,9 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                                     onClick = { 
                                                         allMessages.clear()
                                                         isMenuVisible = false 
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar("Chat cleared successfully")
+                                                        }
                                                     }
                                                 )
                                                 
@@ -254,6 +260,48 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
             )
         },
 
+        snackbarHost = { 
+            SnackbarHost(snackbarHostState) { data ->
+                Surface(
+                    modifier = Modifier
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = White,
+                    border = BorderStroke(1.dp, Color(0xFFF0F0F0)),
+                    shadowElevation = 6.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(28.dp),
+                            shape = CircleShape,
+                            color = RedPrimary.copy(alpha = 0.1f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = null,
+                                    tint = RedPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = data.visuals.message,
+                            color = Black,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.1.sp
+                        )
+                    }
+                }
+            }
+        },
+
         bottomBar = {
             ChatInputBar(
                 text = textState,
@@ -276,53 +324,94 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
         },
         containerColor = White
     ) { paddingValues ->
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(paddingValues)
         ) {
-            itemsIndexed(displayMessages) { index, message ->
-                if (index == firstUnreadIndex && unreadCount > 0 && !isTemporaryMode) {
-                    UnreadSeparator(unreadCount)
-                }
-                
-                val prevMessage = if (index > 0) displayMessages[index - 1] else null
-                val nextMessage = if (index + 1 < displayMessages.size) displayMessages[index + 1] else null
-                
-                val isFirstInGroup = prevMessage == null || prevMessage.isFromMe != message.isFromMe
-                val isLastInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
-                
-                if (isFirstInGroup && index > 0 && index != firstUnreadIndex) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                
-                ChatBubble(
-                    message = message, 
-                    showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
-                    onGhostClick = { 
-                        if (message.isGhost && !message.isUsed) {
-                            activeGhostId = message.id
-                            
-                            // Mark as used
-                            val idx = allMessages.indexOfFirst { it.id == message.id }
-                            if (idx != -1) {
-                                allMessages[idx] = allMessages[idx].copy(isUsed = true)
-                            }
-
-                            // Add dummy messages for THIS specific session
-                            // We give them IDs based on the activeGhostId to "isolate" them
-                            allMessages.addAll(listOf(
-                                Message(id = activeGhostId + 1, text = "Psst... This is a fresh Ghost Session.", isFromMe = false, isTemporary = true),
-                                Message(id = activeGhostId + 2, text = "Only messages from this invite appear here.", isFromMe = true, isTemporary = true),
-                                Message(id = activeGhostId + 3, text = "Everything wipes when you leave. 🤫", isFromMe = false, isTemporary = true)
-                            ))
-                            isTemporaryMode = true 
+            if (displayMessages.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.size(80.dp),
+                        shape = CircleShape,
+                        color = Color(0xFFF7F7F7)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Email,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp),
+                                tint = Color(0xFFCCCCCC)
+                            )
                         }
                     }
-                )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "No Messages Yet",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Black
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Send a message to start the conversation",
+                        fontSize = 14.sp,
+                        color = GreyText,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 40.dp)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    itemsIndexed(displayMessages) { index, message ->
+                        if (index == firstUnreadIndex && unreadCount > 0 && !isTemporaryMode) {
+                            UnreadSeparator(unreadCount)
+                        }
+                        
+                        val prevMessage = if (index > 0) displayMessages[index - 1] else null
+                        val nextMessage = if (index + 1 < displayMessages.size) displayMessages[index + 1] else null
+                        
+                        val isFirstInGroup = prevMessage == null || prevMessage.isFromMe != message.isFromMe
+                        val isLastInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
+                        
+                        if (isFirstInGroup && index > 0 && index != firstUnreadIndex) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        
+                        ChatBubble(
+                            message = message, 
+                            showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
+                            onGhostClick = { 
+                                if (message.isGhost && !message.isUsed) {
+                                    activeGhostId = message.id
+                                    
+                                    // Mark as used
+                                    val idx = allMessages.indexOfFirst { it.id == message.id }
+                                    if (idx != -1) {
+                                        allMessages[idx] = allMessages[idx].copy(isUsed = true)
+                                    }
+
+                                    // Add dummy messages for THIS specific session
+                                    allMessages.addAll(listOf(
+                                        Message(id = activeGhostId + 1, text = "Psst... This is a fresh Ghost Session.", isFromMe = false, isTemporary = true),
+                                        Message(id = activeGhostId + 2, text = "Only messages from this invite appear here.", isFromMe = true, isTemporary = true),
+                                        Message(id = activeGhostId + 3, text = "Everything wipes when you leave. 🤫", isFromMe = false, isTemporary = true)
+                                    ))
+                                    isTemporaryMode = true 
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
