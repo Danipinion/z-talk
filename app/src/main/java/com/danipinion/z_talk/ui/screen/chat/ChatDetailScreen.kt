@@ -6,11 +6,13 @@ import android.content.ContextWrapper
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,11 +27,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -80,6 +84,10 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     var isDeleteChatDialogVisible by remember { mutableStateOf(false) }
     var showAddFriendConfirmDialog by remember { mutableStateOf(false) }
     var isAddFriendDialogVisible by remember { mutableStateOf(false) }
+    var isSearchVisible by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var debouncedQuery by remember { mutableStateOf("") }
+    var highlightedMessageId by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -101,6 +109,22 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
 
     LaunchedEffect(showAddFriendConfirmDialog) {
         if (showAddFriendConfirmDialog) isAddFriendDialogVisible = true
+    }
+    LaunchedEffect(highlightedMessageId) {
+        if (highlightedMessageId != null) {
+            delay(2000)
+            highlightedMessageId = null
+        }
+    }
+
+    LaunchedEffect(searchQuery) {
+        delay(300) // Debounce
+        debouncedQuery = searchQuery
+    }
+
+    val searchResults = remember(debouncedQuery, allMessages) {
+        if (debouncedQuery.isBlank()) emptyList<Message>()
+        else allMessages.filter { it.text.contains(debouncedQuery, ignoreCase = true) && !it.isStatus }
     }
     
     // Screenshot Protection (FLAG_SECURE) logic
@@ -195,7 +219,10 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                                 DropdownMenuItem(
                                                     text = { Text("Search in Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
                                                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
-                                                    onClick = { isMenuVisible = false }
+                                                    onClick = { 
+                                                        isMenuVisible = false 
+                                                        isSearchVisible = true
+                                                    }
                                                 )
                                                 DropdownMenuItem(
                                                     text = { Text("Mute Notifications", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
@@ -533,6 +560,7 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                             ChatBubble(
                                 message = message, 
                                 showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
+                                isHighlighted = message.id == highlightedMessageId,
                                 onGhostClick = { 
                                     if (message.isGhost && !message.isUsed) {
                                         activeGhostId = message.id
@@ -1040,6 +1068,128 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                 }
             }
         }
+
+        // Search Overlay
+        AnimatedVisibility(
+            visible = isSearchVisible,
+            enter = slideInHorizontally(initialOffsetX = { it }),
+            exit = slideOutHorizontally(targetOffsetX = { it }),
+            modifier = Modifier.zIndex(10f)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = White
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Search Header
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                        color = White,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { 
+                                isSearchVisible = false
+                                searchQuery = ""
+                                debouncedQuery = ""
+                            }) {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, modifier = Modifier.size(28.dp))
+                            }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+                            
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(24.dp),
+                                color = Color(0xFFF7F7F7),
+                                border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                            ) {
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    textStyle = LocalTextStyle.current.copy(color = Black, fontSize = 15.sp),
+                                    cursorBrush = SolidColor(RedPrimary),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        if (searchQuery.isEmpty()) {
+                                            Text("Search messages...", color = GreyText, fontSize = 15.sp)
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Search Results
+                    if (debouncedQuery.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFFEEEEEE), modifier = Modifier.size(80.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Search for messages in this chat", color = GreyText, fontSize = 14.sp)
+                            }
+                        }
+                    } else if (searchResults.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.SearchOff, contentDescription = null, tint = Color(0xFFEEEEEE), modifier = Modifier.size(80.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("No results found for \"$debouncedQuery\"", color = GreyText, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(searchResults) { message ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val index = displayMessages.indexOfFirst { it.id == message.id }
+                                            if (index != -1) {
+                                                scope.launch {
+                                                    highlightedMessageId = message.id
+                                                    isSearchVisible = false
+                                                    searchQuery = ""
+                                                    debouncedQuery = ""
+                                                    listState.animateScrollToItem(index)
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (message.isFromMe) "Me" else username,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = RedPrimary
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = message.text,
+                                        fontSize = 14.sp,
+                                        color = Black,
+                                        maxLines = 2,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    HorizontalDivider(color = Color(0xFFF5F5F5))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1098,10 +1248,19 @@ fun StatusSeparator(text: String) {
 fun ChatBubble(
     message: Message, 
     showAvatar: Boolean,
+    isHighlighted: Boolean = false,
     onGhostClick: () -> Unit = {}
 ) {
+    val highlightColor by animateColorAsState(
+        targetValue = if (isHighlighted) RedPrimary.copy(alpha = 0.15f) else Color.Transparent,
+        animationSpec = tween(durationMillis = 500)
+    )
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(highlightColor)
+            .padding(vertical = if (isHighlighted) 8.dp else 0.dp),
         horizontalAlignment = if (message.isFromMe) Alignment.End else Alignment.Start
     ) {
         Row(
@@ -1223,6 +1382,7 @@ fun ChatInputBar(
                         color = if (enabled) Black else GreyText, 
                         fontSize = 15.sp
                     ),
+                    cursorBrush = SolidColor(RedPrimary),
                     enabled = enabled,
                     decorationBox = { innerTextField ->
                         if (text.isEmpty()) {
