@@ -1,5 +1,7 @@
 package com.danipinion.z_talk.ui.screen.auth
 
+import androidx.activity.compose.BackHandler
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -23,6 +25,11 @@ fun ForgotPasswordScreen(
     onBackToLogin: () -> Unit
 ) {
     var step by remember { mutableIntStateOf(1) }
+    
+    BackHandler {
+        if (step > 1) step-- else onBackToLogin()
+    }
+
     var email by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
