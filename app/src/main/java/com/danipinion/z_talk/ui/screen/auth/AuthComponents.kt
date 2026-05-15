@@ -2,6 +2,7 @@ package com.danipinion.z_talk.ui.screen.auth
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -11,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -127,4 +129,26 @@ fun OtpInputField(
             }
         }
     )
+}
+
+@Composable
+fun PasswordCriteriaItem(text: String, isMet: Boolean) {
+    Row(
+        modifier = Modifier.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(if (isMet) Color(0xFF4CAF50) else GreyText.copy(alpha = 0.3f))
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            color = if (isMet) Color(0xFF4CAF50) else GreyText,
+            fontWeight = if (isMet) FontWeight.Bold else FontWeight.Normal
+        )
+    }
 }

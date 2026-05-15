@@ -3,8 +3,10 @@ package com.danipinion.z_talk.ui.screen.auth
 import androidx.activity.compose.BackHandler
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -13,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +80,8 @@ fun ForgotPasswordScreen(
 
 @Composable
 fun StepOne(email: String, onEmailChange: (String) -> Unit, onNext: () -> Unit) {
+    val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Forgot Password", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Black)
         Spacer(modifier = Modifier.height(8.dp))
@@ -98,13 +103,44 @@ fun StepOne(email: String, onEmailChange: (String) -> Unit, onNext: () -> Unit) 
             placeholder = "Enter your email"
         )
 
+        AnimatedVisibility(
+            visible = email.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isEmailValid) Icons.Default.CheckCircle else Icons.Default.Error,
+                    contentDescription = null,
+                    tint = if (isEmailValid) Color(0xFF4CAF50) else RedPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (isEmailValid) "Email format is valid" else "Please enter a valid email address",
+                    fontSize = 11.sp,
+                    color = if (isEmailValid) Color(0xFF4CAF50) else RedPrimary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(48.dp))
 
         Button(
             onClick = onNext,
+            enabled = isEmailValid,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RedPrimary, 
+                contentColor = White,
+                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
+                disabledContentColor = White.copy(alpha = 0.5f)
+            )
         ) {
             Text("Send Code", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
@@ -157,9 +193,15 @@ fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: (
 
         Button(
             onClick = onNext,
+            enabled = otp.length == 6,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RedPrimary, 
+                contentColor = White,
+                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
+                disabledContentColor = White.copy(alpha = 0.5f)
+            )
         ) {
             Text("Verify", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
@@ -184,6 +226,13 @@ fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: (
 
 @Composable
 fun StepThree(pass: String, confirm: String, onPassChange: (String) -> Unit, onConfirmChange: (String) -> Unit, onNext: () -> Unit) {
+    val hasUppercase = pass.any { it.isUpperCase() }
+    val hasLowercase = pass.any { it.isLowerCase() }
+    val hasNumber = pass.any { it.isDigit() }
+    val hasSymbol = pass.any { !it.isLetterOrDigit() }
+    val isPasswordStrong = hasUppercase && hasLowercase && hasNumber && hasSymbol && pass.length >= 8
+    val passwordsMatch = confirm.isNotEmpty() && pass == confirm
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Reset Password", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Black)
         Spacer(modifier = Modifier.height(8.dp))
@@ -205,6 +254,54 @@ fun StepThree(pass: String, confirm: String, onPassChange: (String) -> Unit, onC
             isPassword = true
         )
 
+        // Password Strength Indicator
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val strength = when {
+                isPasswordStrong -> 4
+                pass.length >= 6 && (hasUppercase || hasNumber) -> 3
+                pass.length >= 4 -> 2
+                pass.isNotEmpty() -> 1
+                else -> 0
+            }
+
+            repeat(4) { index ->
+                val isActive = index < strength
+                val targetColor = when {
+                    strength == 4 -> Color(0xFF4CAF50)
+                    strength == 3 -> Color(0xFFFFC107)
+                    strength == 2 -> Color(0xFFFF9800)
+                    strength == 1 -> RedPrimary
+                    else -> GreyDivider
+                }
+                
+                val barColor by animateColorAsState(
+                    targetValue = if (isActive) targetColor else GreyDivider,
+                    animationSpec = tween(durationMillis = 400)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(barColor)
+                )
+            }
+        }
+
+        // Criteria Checklist
+        Spacer(modifier = Modifier.height(12.dp))
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+            PasswordCriteriaItem("Use 8 or more characters", pass.length >= 8)
+            PasswordCriteriaItem("Mix upper and lower case letters", hasUppercase && hasLowercase)
+            PasswordCriteriaItem("Add at least one number", hasNumber)
+            PasswordCriteriaItem("Use a special character (e.g., #$@)", hasSymbol)
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         AuthTextField(
@@ -216,15 +313,47 @@ fun StepThree(pass: String, confirm: String, onPassChange: (String) -> Unit, onC
             isPassword = true
         )
 
+        AnimatedVisibility(
+            visible = confirm.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (passwordsMatch) Icons.Default.CheckCircle else Icons.Default.Error,
+                    contentDescription = null,
+                    tint = if (passwordsMatch) Color(0xFF4CAF50) else RedPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (passwordsMatch) "Perfect! Your passwords match" else "Passwords don't match yet",
+                    fontSize = 11.sp,
+                    color = if (passwordsMatch) Color(0xFF4CAF50) else RedPrimary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(48.dp))
 
         Button(
             onClick = onNext,
+            enabled = isPasswordStrong && passwordsMatch,
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RedPrimary, 
+                contentColor = White,
+                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
+                disabledContentColor = White.copy(alpha = 0.5f)
+            )
         ) {
             Text("Reset Password", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
+

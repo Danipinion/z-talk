@@ -1,6 +1,7 @@
 package com.danipinion.z_talk.ui.screen.auth
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -103,7 +104,11 @@ fun RegisterScreen(
                 placeholder = "Choose a username"
             )
             
-            if (username.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = username.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -213,7 +218,11 @@ fun RegisterScreen(
                 onPasswordToggle = { isConfirmVisible = !isConfirmVisible }
             )
 
-            if (confirmPassword.isNotEmpty()) {
+            AnimatedVisibility(
+                visible = confirmPassword.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -261,24 +270,3 @@ fun RegisterScreen(
     }
 }
 
-@Composable
-fun PasswordCriteriaItem(text: String, isMet: Boolean) {
-    Row(
-        modifier = Modifier.padding(vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(if (isMet) Color(0xFF4CAF50) else GreyText.copy(alpha = 0.3f))
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            color = if (isMet) Color(0xFF4CAF50) else GreyText,
-            fontWeight = if (isMet) FontWeight.Bold else FontWeight.Normal
-        )
-    }
-}
