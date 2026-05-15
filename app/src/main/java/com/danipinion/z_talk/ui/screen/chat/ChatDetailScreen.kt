@@ -224,11 +224,6 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                                                         isSearchVisible = true
                                                     }
                                                 )
-                                                DropdownMenuItem(
-                                                    text = { Text("Mute Notifications", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
-                                                    leadingIcon = { Icon(Icons.Default.NotificationsOff, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
-                                                    onClick = { isMenuVisible = false }
-                                                )
                                                 
                                                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
 
