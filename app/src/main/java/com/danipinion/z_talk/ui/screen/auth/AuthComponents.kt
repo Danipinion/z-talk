@@ -3,6 +3,7 @@ package com.danipinion.z_talk.ui.screen.auth
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
@@ -71,4 +73,58 @@ fun AuthTextField(
             )
         }
     }
+}
+@Composable
+fun OtpInputField(
+    otpText: String,
+    onOtpTextChange: (String) -> Unit,
+    otpCount: Int = 6
+) {
+    BasicTextField(
+        value = otpText,
+        onValueChange = {
+            if (it.length <= otpCount) {
+                onOtpTextChange(it)
+            }
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        decorationBox = { innerTextField ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(otpCount) { index ->
+                    val char = when {
+                        index >= otpText.length -> ""
+                        else -> otpText[index].toString()
+                    }
+                    val isFocused = otpText.length == index
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .background(
+                                color = if (isFocused) White else GreyLight,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                width = if (isFocused) 2.dp else 1.dp,
+                                color = if (isFocused) RedPrimary else GreyDivider,
+                                shape = RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = char,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isFocused) RedPrimary else Black,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    )
 }

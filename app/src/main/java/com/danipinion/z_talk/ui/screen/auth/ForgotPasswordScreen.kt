@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
+import kotlinx.coroutines.delay
 
 @Composable
 fun ForgotPasswordScreen(
@@ -112,6 +113,15 @@ fun StepOne(email: String, onEmailChange: (String) -> Unit, onNext: () -> Unit) 
 
 @Composable
 fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: () -> Unit) {
+    var timerSeconds by remember { mutableIntStateOf(60) }
+    
+    LaunchedEffect(timerSeconds) {
+        if (timerSeconds > 0) {
+            delay(1000)
+            timerSeconds--
+        }
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Verify Code", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Black)
         Spacer(modifier = Modifier.height(8.dp))
@@ -124,15 +134,26 @@ fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: (
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        AuthTextField(
-            value = otp,
-            onValueChange = onOtpChange,
-            label = "Verification Code",
-            leadingIcon = Icons.Default.VpnKey,
-            placeholder = "Enter 6-digit code"
+        OtpInputField(
+            otpText = otp,
+            onOtpTextChange = onOtpChange
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = if (timerSeconds > 0) {
+                val mins = timerSeconds / 60
+                val secs = timerSeconds % 60
+                String.format("Resend code in %02d:%02d", mins, secs)
+            } else {
+                "You can now resend the code"
+            },
+            fontSize = 14.sp,
+            color = GreyText
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = onNext,
@@ -143,8 +164,20 @@ fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: (
             Text("Verify", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         
-        TextButton(onClick = { /* Resend */ }) {
-            Text("Resend Code", color = RedPrimary, fontWeight = FontWeight.Bold)
+        TextButton(
+            onClick = { 
+                if (timerSeconds == 0) {
+                    timerSeconds = 60 
+                    // Add resend logic here
+                }
+            },
+            enabled = timerSeconds == 0
+        ) {
+            Text(
+                "Resend Code", 
+                color = if (timerSeconds == 0) RedPrimary else GreyText.copy(alpha = 0.5f), 
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
