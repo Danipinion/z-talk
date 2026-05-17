@@ -18,7 +18,7 @@ import com.danipinion.z_talk.ui.theme.*
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (token: String, username: String, userId: String) -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToForgotPassword: () -> Unit
 ) {
@@ -30,8 +30,13 @@ fun LoginScreen(
 
     // Handle Auth States
     LaunchedEffect(loginState) {
-        if (loginState is AuthState.Success) {
-            onLoginSuccess()
+        val state = loginState
+        if (state is AuthState.Success) {
+            val response = state.data
+            val token = response.token ?: ""
+            val uName = response.user?.username ?: ""
+            val uId = response.user?.id ?: ""
+            onLoginSuccess(token, uName, uId)
             viewModel.resetStates()
         }
     }
