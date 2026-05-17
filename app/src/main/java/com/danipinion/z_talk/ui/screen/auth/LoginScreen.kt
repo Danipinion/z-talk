@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
@@ -102,15 +103,53 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            val scope = rememberCoroutineScope()
+            var isLoading by remember { mutableStateOf(false) }
+            var errorMessage by remember { mutableStateOf<String?>(null) }
+
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage ?: "",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+
             Button(
-                onClick = onLoginSuccess,
+                onClick = {
+                    if (username.isNotEmpty() && password.isNotEmpty()) {
+                        scope.launch {
+                            isLoading = true
+                            errorMessage = null
+                            try {
+                                val response = com.danipinion.z_talk.data.remote.RetrofitClient.apiService.login(
+                                    com.danipinion.z_talk.data.remote.model.AuthRequest(username, password)
+                                )
+                                if (response.isSuccessful && response.body()?.token != null) {
+                                    onLoginSuccess()
+                                } else {
+                                    errorMessage = response.body()?.error ?: "Login failed"
+                                }
+                            } catch (e: Exception) {
+                                errorMessage = e.message ?: "Network error"
+                            } finally {
+                                isLoading = false
+                            }
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White)
+                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White),
+                enabled = !isLoading
             ) {
-                Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
+                } else {
+                    Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
