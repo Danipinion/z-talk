@@ -7,14 +7,45 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import 'dotenv/config'
 
+import fs from 'fs'
+import path from 'path'
+
 const app = new Hono()
 
-// Initialize Firebase Admin (Update with your actual service account credentials)
-// For local development without service account JSON file, 
-// you can set GOOGLE_APPLICATION_CREDENTIALS in .env or provide an object here.
+let credential;
+
+// Try to load from env variable as JSON string
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+    credential = admin.credential.cert(serviceAccount)
+    console.log('Firebase Admin initialized using FIREBASE_SERVICE_ACCOUNT_JSON env variable.')
+  } catch (err) {
+    console.error('Error parsing FIREBASE_SERVICE_ACCOUNT_JSON env:', err)
+  }
+} 
+// Try to load from a local serviceAccountKey.json file
+else {
+  const serviceAccountPath = path.join(process.cwd(), 'serviceAccountKey.json')
+  if (fs.existsSync(serviceAccountPath)) {
+    try {
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'))
+      credential = admin.credential.cert(serviceAccount)
+      console.log('Firebase Admin initialized using local serviceAccountKey.json file.')
+    } catch (err) {
+      console.error('Error reading/parsing local serviceAccountKey.json:', err)
+    }
+  }
+}
+
+if (!credential) {
+  console.warn('⚠️ WARNING: No serviceAccountKey.json found or FIREBASE_SERVICE_ACCOUNT_JSON env variable provided. Falling back to applicationDefault() which might fail in local environments.')
+  credential = admin.credential.applicationDefault()
+}
+
 try {
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
+    credential,
     databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://your-database-name.firebaseio.com'
   })
 } catch (e) {
