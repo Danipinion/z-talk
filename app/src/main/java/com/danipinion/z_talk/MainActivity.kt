@@ -21,6 +21,9 @@ import com.danipinion.z_talk.ui.screen.chat.ChatDetailScreen
 import com.danipinion.z_talk.ui.screen.auth.LoginScreen
 import com.danipinion.z_talk.ui.screen.auth.RegisterScreen
 import com.danipinion.z_talk.ui.screen.auth.ForgotPasswordScreen
+import com.danipinion.z_talk.ui.screen.auth.AuthViewModel
+import com.danipinion.z_talk.data.repository.AuthRepository
+import com.danipinion.z_talk.data.remote.RetrofitClient
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
@@ -41,17 +44,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZtalkTheme {
+                val authViewModel = remember {
+                    AuthViewModel(AuthRepository(RetrofitClient.apiService))
+                }
                 var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
                 var dashboardTab by rememberSaveable { mutableIntStateOf(0) }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
                         is Screen.Login -> LoginScreen(
+                            viewModel = authViewModel,
                             onLoginSuccess = { currentScreen = Screen.Dashboard },
                             onNavigateToRegister = { currentScreen = Screen.Register },
                             onNavigateToForgotPassword = { currentScreen = Screen.ForgotPassword }
                         )
                         is Screen.Register -> RegisterScreen(
+                            viewModel = authViewModel,
                             onRegisterSuccess = { currentScreen = Screen.Login },
                             onNavigateToLogin = { currentScreen = Screen.Login }
                         )

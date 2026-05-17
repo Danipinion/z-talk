@@ -5,11 +5,17 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.danipinion.z_talk.data.local.dao.UserDao
+import com.danipinion.z_talk.data.local.dao.ChatRoomDao
+import com.danipinion.z_talk.data.local.dao.MessageDao
 import com.danipinion.z_talk.data.local.entity.UserEntity
+import com.danipinion.z_talk.data.local.entity.ChatRoomEntity
+import com.danipinion.z_talk.data.local.entity.MessageEntity
 
-@Database(entities = [UserEntity::class], version = 1, exportSchema = false)
+@Database(entities = [UserEntity::class, ChatRoomEntity::class, MessageEntity::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
+    abstract fun chatRoomDao(): ChatRoomDao
+    abstract fun messageDao(): MessageDao
 
     companion object {
         @Volatile

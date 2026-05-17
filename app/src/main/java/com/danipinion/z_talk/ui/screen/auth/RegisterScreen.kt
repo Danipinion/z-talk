@@ -2,10 +2,8 @@ package com.danipinion.z_talk.ui.screen.auth
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -21,48 +19,50 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import com.danipinion.z_talk.data.remote.model.AuthRequest
 import com.danipinion.z_talk.ui.theme.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(
+    viewModel: AuthViewModel,
     onRegisterSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
-    BackHandler { onNavigateToLogin() }
+    BackHandler { 
+        viewModel.resetStates()
+        onNavigateToLogin() 
+    }
+
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var isConfirmVisible by remember { mutableStateOf(false) }
-    var isCheckingUsername by remember { mutableStateOf(false) }
-    var usernameStatus by remember { mutableStateOf<Boolean?>(null) } // null = initial, true = available, false = taken
 
-    // Real-time Username Check with Backend
+    val registerState by viewModel.registerState.collectAsState()
+    val usernameAvailable by viewModel.usernameAvailable.collectAsState()
+    val isCheckingUsername by viewModel.isCheckingUsername.collectAsState()
+
+    // Handle typing debounce for username check
     LaunchedEffect(username) {
         if (username.isEmpty()) {
-            usernameStatus = null
-            isCheckingUsername = false
+            viewModel.resetStates()
             return@LaunchedEffect
         }
-        isCheckingUsername = true
-        delay(500) // Debounce typing so we don't hammer the database
-        try {
-            val response = com.danipinion.z_talk.data.remote.RetrofitClient.apiService.checkUsername(username)
-            if (response.isSuccessful && response.body() != null) {
-                usernameStatus = response.body()?.available
-            } else {
-                usernameStatus = null
-            }
-        } catch (e: Exception) {
-            usernameStatus = null
-        } finally {
-            isCheckingUsername = false
+        delay(500) // Debounce typing
+        viewModel.checkUsername(username)
+    }
+
+    // Handle Success Redirection
+    LaunchedEffect(registerState) {
+        if (registerState is AuthState.Success) {
+            onRegisterSuccess()
+            viewModel.resetStates()
         }
     }
 
-    val isUsernameTaken = usernameStatus == false
+    val isUsernameTaken = usernameAvailable == false
     val hasUppercase = password.any { it.isUpperCase() }
     val hasLowercase = password.any { it.isLowerCase() }
     val hasNumber = password.any { it.isDigit() }
@@ -83,10 +83,15 @@ fun RegisterScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
                 horizontalArrangement = Arrangement.Start
             ) {
-                IconButton(onClick = onNavigateToLogin) {
+                IconButton(onClick = {
+                    viewModel.resetStates()
+                    onNavigateToLogin()
+                }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Black)
                 }
             }
@@ -107,6 +112,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // Inputs
             AuthTextField(
                 value = username,
                 onValueChange = { username = it },
@@ -121,7 +127,9 @@ fun RegisterScreen(
                 exit = fadeOut() + shrinkVertically()
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (isCheckingUsername) {
@@ -137,7 +145,7 @@ fun RegisterScreen(
                             color = GreyText,
                             fontWeight = FontWeight.Medium
                         )
-                    } else if (usernameStatus != null) {
+                    } else if (usernameAvailable != null) {
                         Icon(
                             imageVector = if (isUsernameTaken) Icons.Default.Close else Icons.Default.Check,
                             contentDescription = null,
@@ -171,7 +179,9 @@ fun RegisterScreen(
             // Password Strength Indicator
             Spacer(modifier = Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val strength = when {
@@ -194,7 +204,8 @@ fun RegisterScreen(
                     
                     val barColor by animateColorAsState(
                         targetValue = if (isActive) targetColor else GreyDivider,
-                        animationSpec = tween(durationMillis = 400)
+                        animationSpec = tween(durationMillis = 400),
+                        label = "strength_color"
                     )
 
                     Box(
@@ -209,7 +220,9 @@ fun RegisterScreen(
 
             // Criteria Checklist
             Spacer(modifier = Modifier.height(12.dp))
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)) {
                 PasswordCriteriaItem("Use 8 or more characters", password.length >= 8)
                 PasswordCriteriaItem("Mix upper and lower case letters", hasUppercase && hasLowercase)
                 PasswordCriteriaItem("Add at least one number", hasNumber)
@@ -235,7 +248,9 @@ fun RegisterScreen(
                 exit = fadeOut() + shrinkVertically()
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
@@ -256,40 +271,21 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            val scope = rememberCoroutineScope()
-            var isLoading by remember { mutableStateOf(false) }
-            var errorMessage by remember { mutableStateOf<String?>(null) }
-
+            // Handle Error Alert
+            val errorMessage = (registerState as? AuthState.Error)?.message ?: ""
             ZErrorCard(
-                message = getFriendlyErrorMessage(errorMessage ?: "")
+                message = getFriendlyErrorMessage(errorMessage)
             )
 
             ZAuthButton(
                 text = "Sign Up",
                 onClick = {
                     if (username.isNotEmpty() && password.isNotEmpty() && passwordsMatch) {
-                        scope.launch {
-                            isLoading = true
-                            errorMessage = null
-                            try {
-                                val response = com.danipinion.z_talk.data.remote.RetrofitClient.apiService.register(
-                                    com.danipinion.z_talk.data.remote.model.AuthRequest(username, password)
-                                )
-                                if (response.isSuccessful && response.body()?.token != null) {
-                                    onRegisterSuccess()
-                                } else {
-                                    errorMessage = response.body()?.error ?: "Registration failed"
-                                }
-                            } catch (e: Exception) {
-                                errorMessage = e.message ?: "Network error"
-                            } finally {
-                                isLoading = false
-                            }
-                        }
+                        viewModel.register(AuthRequest(username, password))
                     }
                 },
-                isLoading = isLoading,
-                enabled = !isUsernameTaken && isPasswordStrong && passwordsMatch
+                isLoading = registerState is AuthState.Loading,
+                enabled = username.isNotEmpty() && password.isNotEmpty() && !isUsernameTaken && isPasswordStrong && passwordsMatch
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -298,11 +294,13 @@ fun RegisterScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Already have an account?", color = GreyText)
-                TextButton(onClick = onNavigateToLogin) {
+                TextButton(onClick = {
+                    viewModel.resetStates()
+                    onNavigateToLogin()
+                }) {
                     Text("Login", color = RedPrimary, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
-
