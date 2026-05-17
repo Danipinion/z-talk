@@ -62,6 +62,25 @@ app.get('/', (c) => {
   return c.text('Z-Talk Backend is running!')
 })
 
+// Check Username API
+app.get('/api/auth/check-username/:username', async (c) => {
+  try {
+    const username = c.req.param('username')
+    if (!username) {
+      return c.json({ error: 'Username is required' }, 400)
+    }
+    const usersRef = db.ref('users')
+    const snapshot = await usersRef.orderByChild('username').equalTo(username).once('value')
+    if (snapshot.exists()) {
+      return c.json({ available: false })
+    }
+    return c.json({ available: true })
+  } catch (error) {
+    console.error('Check username error:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
 // Register API
 app.post('/api/auth/register', async (c) => {
   try {
