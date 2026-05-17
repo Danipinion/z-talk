@@ -107,15 +107,12 @@ fun LoginScreen(
             var isLoading by remember { mutableStateOf(false) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
 
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage ?: "",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            ZErrorCard(
+                message = getFriendlyErrorMessage(errorMessage ?: "")
+            )
 
-            Button(
+            ZAuthButton(
+                text = "Login",
                 onClick = {
                     if (username.isNotEmpty() && password.isNotEmpty()) {
                         scope.launch {
@@ -138,19 +135,9 @@ fun LoginScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White),
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Login", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+                isLoading = isLoading,
+                enabled = username.isNotEmpty() && password.isNotEmpty()
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 

@@ -22,6 +22,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.Dp
 
 @Composable
 fun AuthTextField(
@@ -150,5 +155,125 @@ fun PasswordCriteriaItem(text: String, isMet: Boolean) {
             color = if (isMet) Color(0xFF4CAF50) else GreyText,
             fontWeight = if (isMet) FontWeight.Bold else FontWeight.Normal
         )
+    }
+}
+
+@Composable
+fun ZCircularProgressIndicator(
+    modifier: Modifier = Modifier,
+    color: Color = White,
+    strokeWidth: Dp = 3.dp
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "loading")
+    val angle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    Canvas(modifier = modifier.size(24.dp)) {
+        drawArc(
+            color = color.copy(alpha = 0.2f),
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+        )
+        drawArc(
+            color = color,
+            startAngle = angle,
+            sweepAngle = 90f,
+            useCenter = false,
+            style = Stroke(width = strokeWidth.toPx(), cap = StrokeCap.Round)
+        )
+    }
+}
+
+@Composable
+fun ZAuthButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    enabled: Boolean = true
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = RedPrimary,
+            contentColor = White,
+            disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
+            disabledContentColor = White.copy(alpha = 0.5f)
+        ),
+        enabled = enabled && !isLoading
+    ) {
+        if (isLoading) {
+            ZCircularProgressIndicator(color = White)
+        } else {
+            Text(text = text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+fun getFriendlyErrorMessage(rawError: String): String {
+    if (rawError.isBlank()) return ""
+    val lower = rawError.lowercase()
+    return when {
+        lower.contains("required") -> "Fill in all deets first, bestie! ✍️"
+        lower.contains("already exists") || lower.contains("claimed") -> "Oof, that username is taken fr! 💀"
+        lower.contains("invalid username or password") || lower.contains("incorrect") || lower.contains("failed") -> "Wait, wrong login deets! 🧐"
+        lower.contains("internal server error") || lower.contains("500") -> "Server's taking a nap right now! ☕"
+        lower.contains("connect") || lower.contains("timeout") || lower.contains("network") || lower.contains("host") -> "No internet, check your connection! 📡"
+        else -> "Oof, something went wrong! 🛠️"
+    }
+}
+
+@Composable
+fun ZErrorCard(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = message.isNotEmpty(),
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically()
+    ) {
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = RedPastel,
+            border = BorderStroke(1.dp, RedPrimary)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = RedPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = message,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Black
+                )
+            }
+        }
     }
 }

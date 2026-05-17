@@ -39,7 +39,7 @@ fun RegisterScreen(
     var isCheckingUsername by remember { mutableStateOf(false) }
     var usernameStatus by remember { mutableStateOf<Boolean?>(null) } // null = initial, true = available, false = taken
 
-    // Username Check Simulation
+    // Real-time Username Check with Backend
     LaunchedEffect(username) {
         if (username.isEmpty()) {
             usernameStatus = null
@@ -47,9 +47,19 @@ fun RegisterScreen(
             return@LaunchedEffect
         }
         isCheckingUsername = true
-        delay(1000) // Simulate network delay
-        usernameStatus = !(username.lowercase() == "admin" || username.lowercase() == "user")
-        isCheckingUsername = false
+        delay(500) // Debounce typing so we don't hammer the database
+        try {
+            val response = com.danipinion.z_talk.data.remote.RetrofitClient.apiService.checkUsername(username)
+            if (response.isSuccessful && response.body() != null) {
+                usernameStatus = response.body()?.available
+            } else {
+                usernameStatus = null
+            }
+        } catch (e: Exception) {
+            usernameStatus = null
+        } finally {
+            isCheckingUsername = false
+        }
     }
 
     val isUsernameTaken = usernameStatus == false
@@ -250,15 +260,12 @@ fun RegisterScreen(
             var isLoading by remember { mutableStateOf(false) }
             var errorMessage by remember { mutableStateOf<String?>(null) }
 
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage ?: "",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            ZErrorCard(
+                message = getFriendlyErrorMessage(errorMessage ?: "")
+            )
 
-            Button(
+            ZAuthButton(
+                text = "Sign Up",
                 onClick = {
                     if (username.isNotEmpty() && password.isNotEmpty() && passwordsMatch) {
                         scope.launch {
@@ -281,19 +288,9 @@ fun RegisterScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary, contentColor = White),
-                enabled = !isLoading && !isUsernameTaken && isPasswordStrong && passwordsMatch
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(color = White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Sign Up", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
+                isLoading = isLoading,
+                enabled = !isUsernameTaken && isPasswordStrong && passwordsMatch
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 

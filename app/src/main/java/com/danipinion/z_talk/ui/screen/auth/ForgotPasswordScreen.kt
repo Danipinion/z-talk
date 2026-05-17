@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ForgotPasswordScreen(
@@ -81,6 +82,8 @@ fun ForgotPasswordScreen(
 @Composable
 fun StepOne(email: String, onEmailChange: (String) -> Unit, onNext: () -> Unit) {
     val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Forgot Password", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Black)
@@ -130,26 +133,27 @@ fun StepOne(email: String, onEmailChange: (String) -> Unit, onNext: () -> Unit) 
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        Button(
-            onClick = onNext,
-            enabled = isEmailValid,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RedPrimary, 
-                contentColor = White,
-                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
-                disabledContentColor = White.copy(alpha = 0.5f)
-            )
-        ) {
-            Text("Send Code", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        ZAuthButton(
+            text = "Send Code",
+            onClick = {
+                scope.launch {
+                    isLoading = true
+                    delay(1200)
+                    isLoading = false
+                    onNext()
+                }
+            },
+            isLoading = isLoading,
+            enabled = isEmailValid
+        )
     }
 }
 
 @Composable
 fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: () -> Unit) {
     var timerSeconds by remember { mutableIntStateOf(60) }
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     
     LaunchedEffect(timerSeconds) {
         if (timerSeconds > 0) {
@@ -191,20 +195,19 @@ fun StepTwo(email: String, otp: String, onOtpChange: (String) -> Unit, onNext: (
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
-            onClick = onNext,
-            enabled = otp.length == 6,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RedPrimary, 
-                contentColor = White,
-                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
-                disabledContentColor = White.copy(alpha = 0.5f)
-            )
-        ) {
-            Text("Verify", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        ZAuthButton(
+            text = "Verify",
+            onClick = {
+                scope.launch {
+                    isLoading = true
+                    delay(1200)
+                    isLoading = false
+                    onNext()
+                }
+            },
+            isLoading = isLoading,
+            enabled = otp.length == 6
+        )
         
         TextButton(
             onClick = { 
@@ -232,7 +235,9 @@ fun StepThree(pass: String, confirm: String, onPassChange: (String) -> Unit, onC
     val hasSymbol = pass.any { !it.isLetterOrDigit() }
     val isPasswordStrong = hasUppercase && hasLowercase && hasNumber && hasSymbol && pass.length >= 8
     val passwordsMatch = confirm.isNotEmpty() && pass == confirm
-
+    var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+ 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Reset Password", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Black)
         Spacer(modifier = Modifier.height(8.dp))
@@ -340,20 +345,19 @@ fun StepThree(pass: String, confirm: String, onPassChange: (String) -> Unit, onC
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        Button(
-            onClick = onNext,
-            enabled = isPasswordStrong && passwordsMatch,
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RedPrimary, 
-                contentColor = White,
-                disabledContainerColor = RedPrimary.copy(alpha = 0.5f),
-                disabledContentColor = White.copy(alpha = 0.5f)
-            )
-        ) {
-            Text("Reset Password", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        }
+        ZAuthButton(
+            text = "Reset Password",
+            onClick = {
+                scope.launch {
+                    isLoading = true
+                    delay(1200)
+                    isLoading = false
+                    onNext()
+                }
+            },
+            isLoading = isLoading,
+            enabled = isPasswordStrong && passwordsMatch
+        )
     }
 }
 

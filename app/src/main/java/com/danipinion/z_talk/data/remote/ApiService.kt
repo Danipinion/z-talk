@@ -7,6 +7,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 interface ApiService {
     @GET("users")
@@ -17,4 +18,11 @@ interface ApiService {
 
     @POST("api/auth/register")
     suspend fun register(@Body request: AuthRequest): Response<AuthResponse>
+
+    @GET("api/auth/check-username/{username}")
+    suspend fun checkUsername(@Path("username") username: String): Response<UsernameCheckResponse>
 }
+
+data class UsernameCheckResponse(
+    val available: Boolean
+)
