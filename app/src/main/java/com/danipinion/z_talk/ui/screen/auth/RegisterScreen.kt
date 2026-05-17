@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun RegisterScreen(
     viewModel: AuthViewModel,
-    onRegisterSuccess: () -> Unit,
+    onRegisterSuccess: (token: String, username: String, userId: String) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     BackHandler { 
@@ -56,8 +56,13 @@ fun RegisterScreen(
 
     // Handle Success Redirection
     LaunchedEffect(registerState) {
-        if (registerState is AuthState.Success) {
-            onRegisterSuccess()
+        val state = registerState
+        if (state is AuthState.Success) {
+            val response = state.data
+            val token = response.token ?: ""
+            val uName = response.user?.username ?: ""
+            val uId = response.user?.id ?: ""
+            onRegisterSuccess(token, uName, uId)
             viewModel.resetStates()
         }
     }

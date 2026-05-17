@@ -34,7 +34,11 @@ import coil.compose.AsyncImage
 import com.danipinion.z_talk.ui.theme.*
 
 @Composable
-fun ProfileScreen(onBack: () -> Unit = {}, onEditProfile: () -> Unit = {}) {
+fun ProfileScreen(
+    onBack: () -> Unit = {}, 
+    onEditProfile: () -> Unit = {},
+    onLogout: () -> Unit = {}
+) {
     BackHandler { onBack() }
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
@@ -286,7 +290,10 @@ fun ProfileScreen(onBack: () -> Unit = {}, onEditProfile: () -> Unit = {}) {
             },
             confirmButton = {
                 Button(
-                    onClick = { showLogoutDialog = false },
+                    onClick = { 
+                        showLogoutDialog = false 
+                        onLogout()
+                    },
                     colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
                     shape = RoundedCornerShape(12.dp)
                 ) {

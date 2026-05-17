@@ -24,6 +24,7 @@ import com.danipinion.z_talk.ui.screen.auth.ForgotPasswordScreen
 import com.danipinion.z_talk.ui.screen.auth.AuthViewModel
 import com.danipinion.z_talk.data.repository.AuthRepository
 import com.danipinion.z_talk.data.remote.RetrofitClient
+import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
@@ -44,23 +45,34 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ZtalkTheme {
+                val sessionManager = remember { SessionManager(applicationContext) }
                 val authViewModel = remember {
                     AuthViewModel(AuthRepository(RetrofitClient.apiService))
                 }
-                var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+                var currentScreen by remember { 
+                    mutableStateOf<Screen>(
+                        if (sessionManager.isLoggedIn()) Screen.Dashboard else Screen.Login
+                    ) 
+                }
                 var dashboardTab by rememberSaveable { mutableIntStateOf(0) }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
                         is Screen.Login -> LoginScreen(
                             viewModel = authViewModel,
-                            onLoginSuccess = { currentScreen = Screen.Dashboard },
+                            onLoginSuccess = { token, uName, uId ->
+                                sessionManager.saveSession(token, uName, uId)
+                                currentScreen = Screen.Dashboard
+                            },
                             onNavigateToRegister = { currentScreen = Screen.Register },
                             onNavigateToForgotPassword = { currentScreen = Screen.ForgotPassword }
                         )
                         is Screen.Register -> RegisterScreen(
                             viewModel = authViewModel,
-                            onRegisterSuccess = { currentScreen = Screen.Login },
+                            onRegisterSuccess = { token, uName, uId ->
+                                sessionManager.saveSession(token, uName, uId)
+                                currentScreen = Screen.Dashboard
+                            },
                             onNavigateToLogin = { currentScreen = Screen.Login }
                         )
                         is Screen.ForgotPassword -> ForgotPasswordScreen(
@@ -87,7 +99,11 @@ class MainActivity : ComponentActivity() {
                         is Screen.Profile -> {
                             com.danipinion.z_talk.ui.screen.profile.ProfileScreen(
                                 onBack = { currentScreen = Screen.Dashboard },
-                                onEditProfile = { currentScreen = Screen.EditProfile }
+                                onEditProfile = { currentScreen = Screen.EditProfile },
+                                onLogout = {
+                                    sessionManager.clearSession()
+                                    currentScreen = Screen.Login
+                                }
                             )
                         }
                         is Screen.EditProfile -> {
