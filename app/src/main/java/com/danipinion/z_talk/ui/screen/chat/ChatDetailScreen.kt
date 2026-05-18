@@ -81,21 +81,6 @@ fun ChatDetailScreen(
     val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
 
     val allMessages = remember { mutableStateListOf<Message>() }
-
-    LaunchedEffect(dbMessages) {
-        allMessages.clear()
-        allMessages.addAll(dbMessages.map { entity ->
-            Message(
-                id = entity.messageId.hashCode(),
-                text = entity.text,
-                isFromMe = entity.senderId == senderId,
-                isUnread = false,
-                isGhost = false,
-                isTemporary = false,
-                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked")
-            )
-        })
-    }
     var textState by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     
@@ -121,6 +106,23 @@ fun ChatDetailScreen(
     var debouncedQuery by remember { mutableStateOf("") }
     var highlightedMessageId by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(dbMessages) {
+        allMessages.clear()
+        allMessages.addAll(dbMessages.map { entity ->
+            Message(
+                id = entity.messageId.hashCode(),
+                text = entity.text,
+                isFromMe = entity.senderId == senderId,
+                isUnread = false,
+                isGhost = false,
+                isTemporary = false,
+                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked")
+            )
+        })
+        isBlocked = dbMessages.any { it.text == "You blocked this friend" }
+        isBlockedByOther = dbMessages.any { it.text == "You are blocked by this user" }
+    }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(showMenu) {
@@ -667,11 +669,11 @@ fun ChatDetailScreen(
                                         Text("Cancel", fontWeight = FontWeight.SemiBold)
                                     }
 
-                                    // Remove Button
                                     Button(
                                         onClick = { 
                                             isDialogVisible = false
                                             showRemoveFriendDialog = false
+                                            webSocketManager?.sendRemoveFriend(friendId)
                                             Thread {
                                                 db.friendDao().deleteFriendById(friendId)
                                                 db.messageDao().deleteMessagesForRoom(roomId)
@@ -796,6 +798,7 @@ fun ChatDetailScreen(
                                         onClick = { 
                                             isBlocked = true
                                             isBlockDialogVisible = false
+                                            webSocketManager?.sendBlockUser(friendId)
                                             Thread {
                                                 db.messageDao().insertMessage(
                                                     MessageEntity(
@@ -924,6 +927,7 @@ fun ChatDetailScreen(
                                     Button(
                                         onClick = { 
                                             isDeleteChatDialogVisible = false
+                                            webSocketManager?.sendClearChat(roomId, friendId)
                                             Thread {
                                                 db.messageDao().deleteMessagesForRoom(roomId)
                                                 db.chatRoomDao().deleteChatRoom(roomId)
