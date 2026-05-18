@@ -84,6 +84,40 @@ class WebSocketManager(private val context: Context, private val userId: String)
                             )
                             db.chatRoomDao().insertChatRoom(chatRoom)
                         }.start()
+                    } else if (json.getString("type") == "clear_chat") {
+                        val roomId = json.getString("roomId")
+                        Thread {
+                            db.messageDao().deleteMessagesForRoom(roomId)
+                            db.chatRoomDao().deleteChatRoom(roomId)
+                        }.start()
+                    } else if (json.getString("type") == "remove_friend") {
+                        val senderId = json.getString("senderId")
+                        val receiverId = json.getString("receiverId")
+                        val partnerId = if (senderId == userId) receiverId else senderId
+                        val roomId = if (userId < partnerId) "${userId}_${partnerId}" else "${partnerId}_${userId}"
+                        Thread {
+                            db.friendDao().deleteFriendById(partnerId)
+                            db.messageDao().deleteMessagesForRoom(roomId)
+                            db.chatRoomDao().deleteChatRoom(roomId)
+                        }.start()
+                    } else if (json.getString("type") == "block_user") {
+                        val senderId = json.getString("senderId")
+                        val receiverId = json.getString("receiverId")
+                        if (receiverId == userId) {
+                            val roomId = if (userId < senderId) "${userId}_${senderId}" else "${senderId}_${userId}"
+                            Thread {
+                                db.messageDao().insertMessage(
+                                    MessageEntity(
+                                        messageId = "blocked_by_${System.currentTimeMillis()}",
+                                        roomId = roomId,
+                                        senderId = senderId,
+                                        text = "You are blocked by this user",
+                                        timestamp = System.currentTimeMillis(),
+                                        isSentByMe = false
+                                    )
+                                )
+                            }.start()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to parse WebSocket message: ${e.localizedMessage}")
@@ -119,6 +153,34 @@ class WebSocketManager(private val context: Context, private val userId: String)
             put("senderId", userId)
             put("receiverId", receiverId)
             put("text", text)
+        }
+        webSocket?.send(payload.toString())
+    }
+
+    fun sendClearChat(roomId: String, receiverId: String) {
+        val payload = JSONObject().apply {
+            put("type", "clear_chat")
+            put("roomId", roomId)
+            put("senderId", userId)
+            put("receiverId", receiverId)
+        }
+        webSocket?.send(payload.toString())
+    }
+
+    fun sendRemoveFriend(receiverId: String) {
+        val payload = JSONObject().apply {
+            put("type", "remove_friend")
+            put("senderId", userId)
+            put("receiverId", receiverId)
+        }
+        webSocket?.send(payload.toString())
+    }
+
+    fun sendBlockUser(receiverId: String) {
+        val payload = JSONObject().apply {
+            put("type", "block_user")
+            put("senderId", userId)
+            put("receiverId", receiverId)
         }
         webSocket?.send(payload.toString())
     }
