@@ -47,6 +47,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.data.local.AppDatabase
+import com.danipinion.z_talk.data.local.entity.MessageEntity
 import com.danipinion.z_talk.data.remote.WebSocketManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -90,7 +91,8 @@ fun ChatDetailScreen(
                 isFromMe = entity.senderId == senderId,
                 isUnread = false,
                 isGhost = false,
-                isTemporary = false
+                isTemporary = false,
+                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked")
             )
         })
     }
@@ -260,11 +262,8 @@ fun ChatDetailScreen(
                                                     text = { Text("Clear Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
                                                     leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
                                                     onClick = { 
-                                                        allMessages.clear()
                                                         isMenuVisible = false 
-                                                        scope.launch {
-                                                            snackbarHostState.showSnackbar("Chat cleared successfully")
-                                                        }
+                                                        showDeleteChatDialog = true
                                                     }
                                                 )
                                                 
@@ -285,34 +284,9 @@ fun ChatDetailScreen(
                                                         isMenuVisible = false
                                                         if (isBlocked) {
                                                             isBlocked = false
-                                                            allMessages.add(
-                                                                Message(
-                                                                    id = allMessages.size + 1,
-                                                                    text = "You unblocked this friend",
-                                                                    isFromMe = true,
-                                                                    isStatus = true
-                                                                )
-                                                            )
                                                         } else {
                                                             showBlockUserDialog = true
                                                         }
-                                                    }
-                                                )
-
-                                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
-
-                                                DropdownMenuItem(
-                                                    text = { Text("Simulate: They Block Me", fontSize = 13.sp, color = Color.Gray) },
-                                                    onClick = { 
-                                                        isBlockedByOther = !isBlockedByOther
-                                                        isMenuVisible = false
-                                                    }
-                                                )
-                                                DropdownMenuItem(
-                                                    text = { Text("Simulate: They Remove Me", fontSize = 13.sp, color = Color.Gray) },
-                                                    onClick = { 
-                                                        isRemovedByOther = !isRemovedByOther
-                                                        isMenuVisible = false
                                                     }
                                                 )
                                             }
@@ -698,6 +672,11 @@ fun ChatDetailScreen(
                                         onClick = { 
                                             isDialogVisible = false
                                             showRemoveFriendDialog = false
+                                            Thread {
+                                                db.friendDao().deleteFriendById(friendId)
+                                                db.messageDao().deleteMessagesForRoom(roomId)
+                                                db.chatRoomDao().deleteChatRoom(roomId)
+                                            }.start()
                                             onBack()
                                         },
                                         modifier = Modifier.weight(1f),
@@ -817,14 +796,18 @@ fun ChatDetailScreen(
                                         onClick = { 
                                             isBlocked = true
                                             isBlockDialogVisible = false
-                                            allMessages.add(
-                                                Message(
-                                                    id = allMessages.size + 1,
-                                                    text = "You blocked this friend",
-                                                    isFromMe = true,
-                                                    isStatus = true
+                                            Thread {
+                                                db.messageDao().insertMessage(
+                                                    MessageEntity(
+                                                        messageId = "block_${System.currentTimeMillis()}",
+                                                        roomId = roomId,
+                                                        senderId = senderId,
+                                                        text = "You blocked this friend",
+                                                        timestamp = System.currentTimeMillis(),
+                                                        isSentByMe = true
+                                                    )
                                                 )
-                                            )
+                                            }.start()
                                         },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
@@ -941,6 +924,10 @@ fun ChatDetailScreen(
                                     Button(
                                         onClick = { 
                                             isDeleteChatDialogVisible = false
+                                            Thread {
+                                                db.messageDao().deleteMessagesForRoom(roomId)
+                                                db.chatRoomDao().deleteChatRoom(roomId)
+                                            }.start()
                                             onBack()
                                         },
                                         modifier = Modifier.weight(1f),
