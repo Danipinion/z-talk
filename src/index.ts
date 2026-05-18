@@ -5,6 +5,7 @@ import { cors } from 'hono/cors'
 import { ENV } from './config/env.js'
 import { authRouter } from './routes/auth-routes.js'
 import { friendRouter } from './routes/friend-routes.js'
+import { initWebSocketServer } from './services/websocket-service.js'
 
 const app = new Hono()
 
@@ -21,7 +22,9 @@ app.route('/api/friends', friendRouter)
 
 console.log(`Server is running on port ${ENV.PORT}`)
 
-serve({
+const server = serve({
   fetch: app.fetch,
   port: ENV.PORT
 })
+
+initWebSocketServer(server)
