@@ -15,6 +15,9 @@ interface FriendDao {
     @Query("SELECT * FROM friends WHERE id = :id LIMIT 1")
     fun getFriendById(id: String): FriendEntity?
 
+    @Query("DELETE FROM friends WHERE id = :id")
+    fun deleteFriendById(id: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertFriends(friends: List<FriendEntity>)
 
