@@ -712,16 +712,6 @@ fun EmptySearchState(query: String) {
 }
 
 
-fun getMockChats() = listOf(
-    ChatItemData("Devon Robinson", "Let's catch up tomorrow.", "08:00", isUnread = true),
-    ChatItemData("Zane Barber", "Can you send the files?", "02:03", isUnread = false),
-    ChatItemData("Andre James", "Meeting rescheduled to 11 AM.", "00:05", isUnread = true),
-    ChatItemData("Luboš Volkov", "Looking forward to the event!", "02:45", isUnread = false),
-    ChatItemData("Gordon Walker", "Don't forget the deadline.", "01:17", isUnread = false),
-    ChatItemData("Roger Jameson", "See you at the gym later. And we can connect later.", "05:12", isUnread = true),
-    ChatItemData("Kevin Chen", "Are you free this weekend?", "17:33", isUnread = false),
-    ChatItemData("Salvatore Roberts", "Happy birthday! Enjoy your day!", "07:12", isUnread = false),
-    ChatItemData("Sarah Wilson", "Wants to be your friend", "10:15", isRequest = true),
-    ChatItemData("Michael Scott", "Wants to be your friend", "11:20", isRequest = true)
-)
+fun getMockChats(): List<ChatItemData> = emptyList()
+
 
