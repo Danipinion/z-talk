@@ -11,7 +11,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class FriendViewModel(private val repository: FriendRepository) : ViewModel() {
+import com.danipinion.z_talk.data.local.AppDatabase
+import com.danipinion.z_talk.data.local.entity.FriendEntity
+import com.danipinion.z_talk.data.local.entity.FriendRequestEntity
+
+class FriendViewModel(
+    private val repository: FriendRepository,
+    private val database: AppDatabase
+) : ViewModel() {
 
     private val _searchState = MutableStateFlow<AuthState<List<SearchUserResponse>>>(AuthState.Idle)
     val searchState: StateFlow<AuthState<List<SearchUserResponse>>> = _searchState
@@ -24,6 +31,28 @@ class FriendViewModel(private val repository: FriendRepository) : ViewModel() {
 
     private val _actionState = MutableStateFlow<AuthState<String>>(AuthState.Idle)
     val actionState: StateFlow<AuthState<String>> = _actionState
+
+    init {
+        // Collect cached friends from Room DB and emit immediately
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            database.friendDao().getAllFriends().collect { localFriends ->
+                val mapped = localFriends.map { FriendResponse(it.id, it.username) }
+                // Only push if we haven't successfully fetched fresh remote data
+                if (_friendsState.value !is AuthState.Success) {
+                    _friendsState.value = AuthState.Success(mapped)
+                }
+            }
+        }
+        // Collect cached friend requests from Room DB and emit immediately
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            database.friendRequestDao().getAllFriendRequests().collect { localRequests ->
+                val mapped = localRequests.map { FriendRequestResponse(it.senderId, it.senderUsername, it.status, it.createdAt) }
+                if (_requestsState.value !is AuthState.Success) {
+                    _requestsState.value = AuthState.Success(mapped)
+                }
+            }
+        }
+    }
 
     fun searchUsers(token: String, query: String) {
         if (query.isBlank()) {
@@ -46,33 +75,63 @@ class FriendViewModel(private val repository: FriendRepository) : ViewModel() {
     }
 
     fun getFriendRequests(token: String) {
-        _requestsState.value = AuthState.Loading
+        // Only show loading if we don't already have success (cached) data to avoid visual flickers
+        if (_requestsState.value !is AuthState.Success) {
+            _requestsState.value = AuthState.Loading
+        }
         viewModelScope.launch {
             try {
                 val response = repository.getFriendRequests(token)
                 if (response.isSuccessful && response.body() != null) {
-                    _requestsState.value = AuthState.Success(response.body()!!)
+                    val remoteRequests = response.body()!!
+                    _requestsState.value = AuthState.Success(remoteRequests)
+                    // Update Room DB Cache in background
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        database.friendRequestDao().deleteAllFriendRequests()
+                        database.friendRequestDao().insertFriendRequests(remoteRequests.map {
+                            FriendRequestEntity(it.senderId, it.senderUsername, it.status, it.createdAt)
+                        })
+                    }
                 } else {
-                    _requestsState.value = AuthState.Error(response.message() ?: "Failed to fetch requests")
+                    if (_requestsState.value !is AuthState.Success) {
+                        _requestsState.value = AuthState.Error(response.message() ?: "Failed to fetch requests")
+                    }
                 }
             } catch (e: Exception) {
-                _requestsState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
+                if (_requestsState.value !is AuthState.Success) {
+                    _requestsState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
+                }
             }
         }
     }
 
     fun getFriends(token: String) {
-        _friendsState.value = AuthState.Loading
+        // Only show loading if we don't already have success (cached) data to avoid visual flickers
+        if (_friendsState.value !is AuthState.Success) {
+            _friendsState.value = AuthState.Loading
+        }
         viewModelScope.launch {
             try {
                 val response = repository.getFriends(token)
                 if (response.isSuccessful && response.body() != null) {
-                    _friendsState.value = AuthState.Success(response.body()!!)
+                    val remoteFriends = response.body()!!
+                    _friendsState.value = AuthState.Success(remoteFriends)
+                    // Update Room DB Cache in background
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        database.friendDao().deleteAllFriends()
+                        database.friendDao().insertFriends(remoteFriends.map {
+                            FriendEntity(it.id, it.username)
+                        })
+                    }
                 } else {
-                    _friendsState.value = AuthState.Error(response.message() ?: "Failed to fetch friends")
+                    if (_friendsState.value !is AuthState.Success) {
+                        _friendsState.value = AuthState.Error(response.message() ?: "Failed to fetch friends")
+                    }
                 }
             } catch (e: Exception) {
-                _friendsState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
+                if (_friendsState.value !is AuthState.Success) {
+                    _friendsState.value = AuthState.Error(e.localizedMessage ?: "Unknown error")
+                }
             }
         }
     }

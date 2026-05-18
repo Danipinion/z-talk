@@ -7,15 +7,21 @@ import androidx.room.RoomDatabase
 import com.danipinion.z_talk.data.local.dao.UserDao
 import com.danipinion.z_talk.data.local.dao.ChatRoomDao
 import com.danipinion.z_talk.data.local.dao.MessageDao
+import com.danipinion.z_talk.data.local.dao.FriendDao
+import com.danipinion.z_talk.data.local.dao.FriendRequestDao
 import com.danipinion.z_talk.data.local.entity.UserEntity
 import com.danipinion.z_talk.data.local.entity.ChatRoomEntity
 import com.danipinion.z_talk.data.local.entity.MessageEntity
+import com.danipinion.z_talk.data.local.entity.FriendEntity
+import com.danipinion.z_talk.data.local.entity.FriendRequestEntity
 
-@Database(entities = [UserEntity::class, ChatRoomEntity::class, MessageEntity::class], version = 1, exportSchema = false)
+@Database(entities = [UserEntity::class, ChatRoomEntity::class, MessageEntity::class, FriendEntity::class, FriendRequestEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun chatRoomDao(): ChatRoomDao
     abstract fun messageDao(): MessageDao
+    abstract fun friendDao(): FriendDao
+    abstract fun friendRequestDao(): FriendRequestDao
 
     companion object {
         @Volatile
@@ -27,7 +33,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "z_talk_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

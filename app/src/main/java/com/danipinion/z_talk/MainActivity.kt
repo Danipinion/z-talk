@@ -1,6 +1,7 @@
 package com.danipinion.z_talk
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +28,8 @@ import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
 import com.danipinion.z_talk.data.repository.FriendRepository
 import com.danipinion.z_talk.data.remote.RetrofitClient
 import com.danipinion.z_talk.data.local.SessionManager
+import com.danipinion.z_talk.data.local.AppDatabase
+import com.danipinion.z_talk.data.remote.WebSocketManager
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
 
 sealed class Screen {
@@ -36,7 +39,7 @@ sealed class Screen {
     object Dashboard : Screen()
     object SearchUser : Screen()
     object Scan : Screen()
-    data class ChatDetail(val username: String) : Screen()
+    data class ChatDetail(val username: String, val friendId: String) : Screen()
     object EditProfile : Screen()
     object Profile : Screen()
 }
@@ -51,8 +54,11 @@ class MainActivity : ComponentActivity() {
                  val authViewModel = remember {
                     AuthViewModel(AuthRepository(RetrofitClient.apiService))
                 }
-                val friendViewModel = remember {
-                    FriendViewModel(FriendRepository(RetrofitClient.apiService))
+                 val friendViewModel = remember {
+                    FriendViewModel(
+                        repository = FriendRepository(RetrofitClient.apiService),
+                        database = AppDatabase.getDatabase(applicationContext)
+                    )
                 }
                 var currentScreen by remember { 
                     mutableStateOf<Screen>(
@@ -60,6 +66,23 @@ class MainActivity : ComponentActivity() {
                     ) 
                 }
                 var dashboardTab by rememberSaveable { mutableIntStateOf(0) }
+
+                // Manage WebSocket connection dynamically based on logged in user ID
+                val userId = sessionManager.getUserId() ?: ""
+                var webSocketManager by remember { mutableStateOf<WebSocketManager?>(null) }
+
+                LaunchedEffect(userId) {
+                    if (userId.isNotEmpty()) {
+                        val manager = WebSocketManager(applicationContext, userId)
+                        manager.connect()
+                        webSocketManager = manager
+                        Log.d("MainActivity", "WebSocketManager connected for user $userId")
+                    } else {
+                        webSocketManager?.disconnect()
+                        webSocketManager = null
+                        Log.d("MainActivity", "WebSocketManager disconnected")
+                    }
+                }
 
                 Crossfade(targetState = currentScreen, label = "navigation") { screen ->
                     when (screen) {
@@ -90,7 +113,7 @@ class MainActivity : ComponentActivity() {
                             onTabSelected = { dashboardTab = it },
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },
                             onNavigateToScan = { currentScreen = Screen.Scan },
-                            onNavigateToChat = { username -> currentScreen = Screen.ChatDetail(username) },
+                            onNavigateToChat = { username, friendId -> currentScreen = Screen.ChatDetail(username, friendId) },
                             onNavigateToProfile = { currentScreen = Screen.Profile }
                         )
                         is Screen.SearchUser -> SearchUserScreen(
@@ -107,6 +130,9 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.ChatDetail -> ChatDetailScreen(
                             username = screen.username,
+                            friendId = screen.friendId,
+                            senderId = sessionManager.getUserId() ?: "",
+                            webSocketManager = webSocketManager,
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.Profile -> {

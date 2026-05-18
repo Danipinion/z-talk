@@ -48,7 +48,7 @@ fun ChatDashboardScreen(
     onTabSelected: (Int) -> Unit,
     onNavigateToSearch: () -> Unit = {}, 
     onNavigateToScan: () -> Unit = {},
-    onNavigateToChat: (String) -> Unit = {},
+    onNavigateToChat: (String, String) -> Unit = { _, _ -> },
     onNavigateToProfile: () -> Unit = {}
 ) {
     // Handle system back button to return to "All" tab first
@@ -529,7 +529,7 @@ fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 fun ChatList(
     chats: List<ChatItemData>,
     selectedTab: Int,
-    onItemClick: (String) -> Unit,
+    onItemClick: (String, String) -> Unit,
     onAccept: (ChatItemData) -> Unit = {},
     onDecline: (ChatItemData) -> Unit = {}
 ) {
@@ -558,7 +558,7 @@ fun ChatList(
 fun ChatListItem(
     chat: ChatItemData,
     selectedTab: Int,
-    onClick: (String) -> Unit,
+    onClick: (String, String) -> Unit,
     onAccept: () -> Unit = {},
     onDecline: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -566,7 +566,7 @@ fun ChatListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = !chat.isRequest) { onClick(chat.name) }
+            .clickable(enabled = !chat.isRequest) { onClick(chat.name, chat.id) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

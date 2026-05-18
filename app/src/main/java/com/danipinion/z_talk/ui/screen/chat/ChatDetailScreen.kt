@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.danipinion.z_talk.ui.theme.*
+import com.danipinion.z_talk.data.local.AppDatabase
+import com.danipinion.z_talk.data.remote.WebSocketManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -62,8 +64,36 @@ data class Message(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ChatDetailScreen(username: String, onBack: () -> Unit) {
-    val allMessages = remember { mutableStateListOf<Message>().apply { addAll(getDummyMessages()) } }
+fun ChatDetailScreen(
+    username: String,
+    friendId: String,
+    senderId: String,
+    webSocketManager: WebSocketManager?,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
+    val roomId = remember(senderId, friendId) {
+        if (senderId < friendId) "${senderId}_${friendId}" else "${friendId}_${senderId}"
+    }
+
+    val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
+
+    val allMessages = remember { mutableStateListOf<Message>() }
+
+    LaunchedEffect(dbMessages) {
+        allMessages.clear()
+        allMessages.addAll(dbMessages.map { entity ->
+            Message(
+                id = entity.messageId.hashCode(),
+                text = entity.text,
+                isFromMe = entity.isSentByMe,
+                isUnread = false,
+                isGhost = false,
+                isTemporary = false
+            )
+        })
+    }
     var textState by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     
@@ -128,7 +158,6 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
     }
     
     // Screenshot Protection (FLAG_SECURE) logic
-    val context = LocalContext.current
     DisposableEffect(isTemporaryMode) {
         val activity = context.findActivity()
         if (isTemporaryMode) {
@@ -467,15 +496,7 @@ fun ChatDetailScreen(username: String, onBack: () -> Unit) {
                     onTextChange = { textState = it },
                     onSend = { 
                         if (textState.isNotBlank()) {
-                            allMessages.add(
-                                Message(
-                                    id = allMessages.size + 1,
-                                    text = textState,
-                                    isFromMe = true,
-                                    isGhost = isGhostMode,
-                                    isTemporary = isTemporaryMode
-                                )
-                            )
+                            webSocketManager?.sendMessage(roomId, friendId, textState)
                             textState = ""
                         }
                     },
