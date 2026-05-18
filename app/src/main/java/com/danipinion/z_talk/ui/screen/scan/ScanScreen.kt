@@ -44,6 +44,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
+import com.danipinion.z_talk.ui.component.PremiumTopToast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -57,7 +58,9 @@ fun ScanScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    var toastMessage by remember { mutableStateOf("") }
+    var isToastSuccess by remember { mutableStateOf(true) }
+    var isToastVisible by remember { mutableStateOf(false) }
 
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -90,71 +93,81 @@ fun ScanScreen(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Black
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = {
-                    if (targetState > initialState) {
-                        slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
-                    } else {
-                        slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
-                    }.using(SizeTransform(clip = false))
-                },
-                label = "tabTransition"
-            ) { targetTab ->
-                if (targetTab == 0) {
-                    // Scan Content
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        if (hasCameraPermission) {
-                            CameraPreview(
-                                isFlashOn = isFlashOn,
-                                onQrScanned = { qrValue ->
-                                    if (!isScanned && qrValue.startsWith("z-talk-qr:")) {
-                                        isScanned = true
-                                        val scannedFriendId = qrValue.removePrefix("z-talk-qr:")
-                                        viewModel.addFriendDirectly(token, scannedFriendId) { result ->
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar(result)
-                                                delay(1500)
-                                                onBack()
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Black
+        ) { paddingValues ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                AnimatedContent(
+                    targetState = selectedTab,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
+                        } else {
+                            slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
+                        }.using(SizeTransform(clip = false))
+                    },
+                    label = "tabTransition"
+                ) { targetTab ->
+                    if (targetTab == 0) {
+                        // Scan Content
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (hasCameraPermission) {
+                                CameraPreview(
+                                    isFlashOn = isFlashOn,
+                                    onQrScanned = { qrValue ->
+                                        if (!isScanned && qrValue.startsWith("z-talk-qr:")) {
+                                            isScanned = true
+                                            val scannedFriendId = qrValue.removePrefix("z-talk-qr:")
+                                            viewModel.addFriendDirectly(token, scannedFriendId) { result ->
+                                                scope.launch {
+                                                    toastMessage = result
+                                                    isToastSuccess = !result.contains("error", ignoreCase = true) && !result.contains("failed", ignoreCase = true)
+                                                    isToastVisible = true
+                                                    delay(2000)
+                                                    onBack()
+                                                }
                                             }
                                         }
                                     }
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("Camera permission required", color = White)
                                 }
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Camera permission required", color = White)
                             }
+                            QRScannerOverlay(onBack, isFlashOn, onToggleFlash = { isFlashOn = !isFlashOn })
                         }
-                        QRScannerOverlay(onBack, isFlashOn, onToggleFlash = { isFlashOn = !isFlashOn })
+                    } else {
+                        // My Code Content
+                        MyCodeContent(username, userId, onBack)
                     }
-                } else {
-                    // My Code Content
-                    MyCodeContent(username, userId, onBack)
+                }
+
+                // Bottom Tab Switcher
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 64.dp)
+                ) {
+                    ScanTabSwitcher(selectedTab) { selectedTab = it }
                 }
             }
-
-            // Bottom Tab Switcher
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 64.dp)
-            ) {
-                ScanTabSwitcher(selectedTab) { selectedTab = it }
-            }
         }
+
+        PremiumTopToast(
+            message = toastMessage,
+            isSuccess = isToastSuccess,
+            isVisible = isToastVisible,
+            onDismiss = { isToastVisible = false }
+        )
     }
 }
 

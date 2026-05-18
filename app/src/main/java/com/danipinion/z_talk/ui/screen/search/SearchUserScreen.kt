@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.TextStyle
+import com.danipinion.z_talk.ui.component.PremiumTopToast
 import androidx.compose.ui.text.style.TextAlign
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
@@ -51,46 +52,52 @@ fun SearchUserScreen(
         viewModel.searchUsers(token, searchQuery)
     }
 
-    val snackbarHostState = remember { SnackbarHostState() }
+    var toastMessage by remember { mutableStateOf("") }
+    var isToastSuccess by remember { mutableStateOf(true) }
+    var isToastVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(actionState) {
         if (actionState is AuthState.Success) {
-            snackbarHostState.showSnackbar((actionState as AuthState.Success<String>).data)
+            toastMessage = (actionState as AuthState.Success<String>).data
+            isToastSuccess = true
+            isToastVisible = true
             viewModel.resetActionState()
             // Refresh search results
             viewModel.searchUsers(token, searchQuery)
         } else if (actionState is AuthState.Error) {
-            snackbarHostState.showSnackbar((actionState as AuthState.Error).message)
+            toastMessage = (actionState as AuthState.Error).message
+            isToastSuccess = false
+            isToastVisible = true
             viewModel.resetActionState()
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        "Add Friends", 
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Black
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back",
-                            tint = Black
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = White)
-            )
-        },
-        containerColor = White
-    ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            "Add Friends", 
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Black
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack, 
+                                contentDescription = "Back",
+                                tint = Black
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = White)
+                )
+            },
+            containerColor = White
+        ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,6 +203,14 @@ fun SearchUserScreen(
             }
         }
     }
+
+    PremiumTopToast(
+        message = toastMessage,
+        isSuccess = isToastSuccess,
+        isVisible = isToastVisible,
+        onDismiss = { isToastVisible = false }
+    )
+}
 }
 
 @Composable

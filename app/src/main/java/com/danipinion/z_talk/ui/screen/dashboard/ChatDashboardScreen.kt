@@ -33,12 +33,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.ui.theme.*
+import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
+import com.danipinion.z_talk.ui.screen.auth.AuthState
+import com.danipinion.z_talk.ui.component.PremiumTopToast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDashboardScreen(
+    viewModel: FriendViewModel? = null,
+    token: String = "",
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     onNavigateToSearch: () -> Unit = {}, 
@@ -50,12 +55,49 @@ fun ChatDashboardScreen(
     BackHandler(enabled = selectedTab != 0) {
         onTabSelected(0)
     }
+
     var searchQuery by remember { mutableStateOf("") }
     var debouncedSearchQuery by remember { mutableStateOf("") }
     var isSearchBarVisible by remember { mutableStateOf(false) }
-    val chats = remember { getMockChats() }
     val focusRequester = remember { FocusRequester() }
-    
+
+    val friendsStateFlow = remember(viewModel) { viewModel?.friendsState ?: kotlinx.coroutines.flow.MutableStateFlow(AuthState.Idle) }
+    val requestsStateFlow = remember(viewModel) { viewModel?.requestsState ?: kotlinx.coroutines.flow.MutableStateFlow(AuthState.Idle) }
+    val actionStateFlow = remember(viewModel) { viewModel?.actionState ?: kotlinx.coroutines.flow.MutableStateFlow(AuthState.Idle) }
+
+    val friendsState by friendsStateFlow.collectAsState()
+    val requestsState by requestsStateFlow.collectAsState()
+    val actionState by actionStateFlow.collectAsState()
+
+    var toastMessage by remember { mutableStateOf("") }
+    var isToastSuccess by remember { mutableStateOf(true) }
+    var isToastVisible by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedTab) {
+        if (token.isNotEmpty() && viewModel != null) {
+            viewModel.getFriends(token)
+            viewModel.getFriendRequests(token)
+        }
+    }
+
+    LaunchedEffect(actionState) {
+        if (actionState is AuthState.Success) {
+            toastMessage = (actionState as AuthState.Success<String>).data
+            isToastSuccess = true
+            isToastVisible = true
+            viewModel?.resetActionState()
+            if (token.isNotEmpty() && viewModel != null) {
+                viewModel.getFriends(token)
+                viewModel.getFriendRequests(token)
+            }
+        } else if (actionState is AuthState.Error) {
+            toastMessage = (actionState as AuthState.Error).message
+            isToastSuccess = false
+            isToastVisible = true
+            viewModel?.resetActionState()
+        }
+    }
+
     // Debounce search query
     LaunchedEffect(searchQuery) {
         if (searchQuery.isEmpty()) {
@@ -85,19 +127,20 @@ fun ChatDashboardScreen(
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
 
-    Scaffold(
-        topBar = {
-            ChatTopBar(
-                onTitleClick = { showEmptyState = !showEmptyState },
-                onAddClick = { showBottomSheet = true },
-                onProfileClick = onNavigateToProfile,
-                onSearchToggle = { 
-                    isSearchBarVisible = !isSearchBarVisible 
-                }
-            )
-        },
-        containerColor = White
-    ) { paddingValues ->
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                ChatTopBar(
+                    onTitleClick = { showEmptyState = !showEmptyState },
+                    onAddClick = { showBottomSheet = true },
+                    onProfileClick = onNavigateToProfile,
+                    onSearchToggle = { 
+                        isSearchBarVisible = !isSearchBarVisible 
+                    }
+                )
+            },
+            containerColor = White
+        ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -150,8 +193,43 @@ fun ChatDashboardScreen(
                 )
             }
             
+            val friends = (friendsState as? AuthState.Success)?.data ?: emptyList()
+            val requests = (requestsState as? AuthState.Success)?.data ?: emptyList()
+
+            val currentChats = when (selectedTab) {
+                0 -> friends.map { friend ->
+                    ChatItemData(
+                        id = friend.id,
+                        name = friend.username,
+                        lastMessage = "Tap to open chat room",
+                        time = "Now",
+                        isUnread = false,
+                        isRequest = false
+                    )
+                }
+                1 -> emptyList() // Unread chats placeholder
+                2 -> requests.map { request ->
+                    ChatItemData(
+                        id = request.senderId,
+                        name = request.senderUsername,
+                        lastMessage = "Sent you a friend request",
+                        time = "Pending",
+                        isUnread = true,
+                        isRequest = true
+                    )
+                }
+                else -> emptyList()
+            }
+
+            val filteredChats = currentChats.filter { 
+                it.name.contains(debouncedSearchQuery, ignoreCase = true) || 
+                it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
+            }
+
+            val showEmpty = filteredChats.isEmpty() || showEmptyState
+
             AnimatedContent(
-                targetState = showEmptyState,
+                targetState = showEmpty,
                 transitionSpec = {
                     (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
                         .togetherWith(fadeOut(animationSpec = tween(400)))
@@ -159,26 +237,22 @@ fun ChatDashboardScreen(
                 label = "contentTransition"
             ) { targetEmptyState ->
                 if (targetEmptyState) {
-                    EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
-                } else {
-                    val filteredChats = when (selectedTab) {
-                        1 -> chats.filter { it.isUnread && !it.isRequest }
-                        2 -> chats.filter { it.isRequest }
-                        else -> chats.filter { !it.isRequest }
-                    }.filter { 
-                        it.name.contains(debouncedSearchQuery, ignoreCase = true) || 
-                        it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
-                    }
-
-                    if (filteredChats.isEmpty()) {
-                        if (debouncedSearchQuery.isNotEmpty()) {
-                            EmptySearchState(debouncedSearchQuery)
-                        } else {
-                            EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
-                        }
+                    if (debouncedSearchQuery.isNotEmpty()) {
+                        EmptySearchState(debouncedSearchQuery)
                     } else {
-                        ChatList(filteredChats, onNavigateToChat)
+                        EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
                     }
+                } else {
+                    ChatList(
+                        chats = filteredChats, 
+                        onItemClick = onNavigateToChat,
+                        onAccept = { chat ->
+                            viewModel?.respondToFriendRequest(token, chat.id, true)
+                        },
+                        onDecline = { chat ->
+                            viewModel?.respondToFriendRequest(token, chat.id, false)
+                        }
+                    )
                 }
             }
         }
@@ -217,8 +291,15 @@ fun ChatDashboardScreen(
                 }
             )
         }
-
     }
+
+    PremiumTopToast(
+        message = toastMessage,
+        isSuccess = isToastSuccess,
+        isVisible = isToastVisible,
+        onDismiss = { isToastVisible = false }
+    )
+}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -425,12 +506,23 @@ fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 }
 
 @Composable
-fun ChatList(chats: List<ChatItemData>, onItemClick: (String) -> Unit) {
+fun ChatList(
+    chats: List<ChatItemData>,
+    onItemClick: (String) -> Unit,
+    onAccept: (ChatItemData) -> Unit = {},
+    onDecline: (ChatItemData) -> Unit = {}
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
         items(chats, key = { it.name }) { chat ->
-            ChatListItem(chat, onItemClick, Modifier.animateItem())
+            ChatListItem(
+                chat = chat,
+                onClick = onItemClick,
+                onAccept = { onAccept(chat) },
+                onDecline = { onDecline(chat) },
+                modifier = Modifier.animateItem()
+            )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 82.dp, end = 16.dp),
                 thickness = 0.5.dp,
@@ -441,7 +533,13 @@ fun ChatList(chats: List<ChatItemData>, onItemClick: (String) -> Unit) {
 }
 
 @Composable
-fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifier = Modifier) {
+fun ChatListItem(
+    chat: ChatItemData,
+    onClick: (String) -> Unit,
+    onAccept: () -> Unit = {},
+    onDecline: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -505,7 +603,7 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 IconButton(
-                    onClick = { /* Accept */ },
+                    onClick = onAccept,
                     modifier = Modifier
                         .size(36.dp)
                         .background(RedPrimary, CircleShape)
@@ -518,7 +616,7 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
                     )
                 }
                 IconButton(
-                    onClick = { /* Decline */ },
+                    onClick = onDecline,
                     modifier = Modifier
                         .size(36.dp)
                         .background(Color(0xFFEEEEEE), CircleShape)
@@ -673,6 +771,7 @@ fun ChatBottomNavigation(selectedIndex: Int, onItemSelected: (Int) -> Unit) {
 
 
 data class ChatItemData(
+    val id: String = "",
     val name: String,
     val lastMessage: String,
     val time: String,
