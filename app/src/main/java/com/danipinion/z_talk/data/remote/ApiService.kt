@@ -8,6 +8,8 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Header
+import retrofit2.http.Query
 
 interface ApiService {
     @GET("users")
@@ -21,8 +23,79 @@ interface ApiService {
 
     @GET("api/auth/check-username/{username}")
     suspend fun checkUsername(@Path("username") username: String): Response<UsernameCheckResponse>
+
+    @POST("api/friends/request")
+    suspend fun sendFriendRequest(
+        @Header("Authorization") token: String,
+        @Body request: SendFriendRequestPayload
+    ): Response<GenericResponse>
+
+    @GET("api/friends/requests")
+    suspend fun getFriendRequests(
+        @Header("Authorization") token: String
+    ): Response<List<FriendRequestResponse>>
+
+    @POST("api/friends/respond")
+    suspend fun respondToFriendRequest(
+        @Header("Authorization") token: String,
+        @Body request: RespondRequestPayload
+    ): Response<GenericResponse>
+
+    @POST("api/friends/add-direct")
+    suspend fun addFriendDirectly(
+        @Header("Authorization") token: String,
+        @Body request: AddDirectPayload
+    ): Response<GenericResponse>
+
+    @GET("api/friends/list")
+    suspend fun getFriends(
+        @Header("Authorization") token: String
+    ): Response<List<FriendResponse>>
+
+    @GET("api/friends/search")
+    suspend fun searchUsers(
+        @Header("Authorization") token: String,
+        @Query("q") query: String
+    ): Response<List<SearchUserResponse>>
 }
 
 data class UsernameCheckResponse(
     val available: Boolean
 )
+
+data class SendFriendRequestPayload(
+    val receiverUsername: String
+)
+
+data class RespondRequestPayload(
+    val senderId: String,
+    val accept: Boolean
+)
+
+data class AddDirectPayload(
+    val friendId: String
+)
+
+data class GenericResponse(
+    val message: String? = null,
+    val error: String? = null
+)
+
+data class FriendRequestResponse(
+    val senderId: String,
+    val senderUsername: String,
+    val status: String,
+    val createdAt: Long
+)
+
+data class FriendResponse(
+    val id: String,
+    val username: String
+)
+
+data class SearchUserResponse(
+    val id: String,
+    val username: String,
+    val relation: String // "none", "sent", "received", "friend"
+)
+

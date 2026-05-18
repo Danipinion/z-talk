@@ -6,10 +6,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,22 +31,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.danipinion.z_talk.ui.theme.*
-import androidx.compose.animation.*
+import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun ScanScreen(onBack: () -> Unit) {
+fun ScanScreen(
+    viewModel: FriendViewModel,
+    token: String,
+    username: String,
+    userId: String,
+    onBack: () -> Unit
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -65,6 +80,7 @@ fun ScanScreen(onBack: () -> Unit) {
 
     var isFlashOn by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Scan, 1: My Code
+    var isScanned by remember { mutableStateOf(false) }
 
     BackHandler {
         if (selectedTab == 1) {
@@ -74,53 +90,79 @@ fun ScanScreen(onBack: () -> Unit) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Black)) {
-        AnimatedContent(
-            targetState = selectedTab,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
-                } else {
-                    slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
-                }.using(SizeTransform(clip = false))
-            },
-            label = "tabTransition"
-        ) { targetTab ->
-            if (targetTab == 0) {
-                // Scan Content
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (hasCameraPermission) {
-                        CameraPreview(isFlashOn)
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Camera permission required", color = White)
-                        }
-                    }
-                    QRScannerOverlay(onBack, isFlashOn, onToggleFlash = { isFlashOn = !isFlashOn })
-                }
-            } else {
-                // My Code Content
-                MyCodeContent(onBack)
-            }
-        }
-
-        // Bottom Tab Switcher
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Black
+    ) { paddingValues ->
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 64.dp)
+                .fillMaxSize()
+                .padding(paddingValues)
         ) {
-            ScanTabSwitcher(selectedTab) { selectedTab = it }
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { it } + fadeIn() togetherWith slideOutHorizontally { -it } + fadeOut()
+                    } else {
+                        slideInHorizontally { -it } + fadeIn() togetherWith slideOutHorizontally { it } + fadeOut()
+                    }.using(SizeTransform(clip = false))
+                },
+                label = "tabTransition"
+            ) { targetTab ->
+                if (targetTab == 0) {
+                    // Scan Content
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (hasCameraPermission) {
+                            CameraPreview(
+                                isFlashOn = isFlashOn,
+                                onQrScanned = { qrValue ->
+                                    if (!isScanned && qrValue.startsWith("z-talk-qr:")) {
+                                        isScanned = true
+                                        val scannedFriendId = qrValue.removePrefix("z-talk-qr:")
+                                        viewModel.addFriendDirectly(token, scannedFriendId) { result ->
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(result)
+                                                delay(1500)
+                                                onBack()
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Camera permission required", color = White)
+                            }
+                        }
+                        QRScannerOverlay(onBack, isFlashOn, onToggleFlash = { isFlashOn = !isFlashOn })
+                    }
+                } else {
+                    // My Code Content
+                    MyCodeContent(username, userId, onBack)
+                }
+            }
+
+            // Bottom Tab Switcher
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 64.dp)
+            ) {
+                ScanTabSwitcher(selectedTab) { selectedTab = it }
+            }
         }
     }
 }
 
-
 @Composable
-fun CameraPreview(isFlashOn: Boolean) {
+fun CameraPreview(
+    isFlashOn: Boolean,
+    onQrScanned: (String) -> Unit
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
@@ -136,9 +178,21 @@ fun CameraPreview(isFlashOn: Boolean) {
             val executor = ContextCompat.getMainExecutor(ctx)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
+
+                val imageAnalysis = ImageAnalysis.Builder()
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                imageAnalysis.setAnalyzer(
+                    executor,
+                    QrCodeAnalyzer { qrValue ->
+                        onQrScanned(qrValue)
+                    }
+                )
 
                 val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(CameraSelector.LENS_FACING_BACK)
@@ -149,7 +203,8 @@ fun CameraPreview(isFlashOn: Boolean) {
                     camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         cameraSelector,
-                        preview
+                        preview,
+                        imageAnalysis
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -260,9 +315,8 @@ fun QRScannerOverlay(onBack: () -> Unit, isFlashOn: Boolean, onToggleFlash: () -
     }
 }
 
-
 @Composable
-fun MyCodeContent(onBack: () -> Unit) {
+fun MyCodeContent(username: String, userId: String, onBack: () -> Unit) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -271,7 +325,7 @@ fun MyCodeContent(onBack: () -> Unit) {
         val width = maxWidth.value.toInt()
         val height = maxHeight.value.toInt()
 
-        // "Confetti" / Decorations (Random positions)
+        // Confetti / Decorations
         repeat(30) { index ->
             FloatingDecoration(index, width, height)
         }
@@ -334,12 +388,21 @@ fun MyCodeContent(onBack: () -> Unit) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode2,
-                        contentDescription = null,
-                        modifier = Modifier.size(180.dp),
-                        tint = Black
-                    )
+                    val qrBitmap = remember(userId) { QrCodeGenerator.generate("z-talk-qr:$userId") }
+                    if (qrBitmap != null) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "My QR Code",
+                            modifier = Modifier.size(180.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.QrCode2,
+                            contentDescription = null,
+                            modifier = Modifier.size(180.dp),
+                            tint = Black
+                        )
+                    }
                 }
             }
             
@@ -356,7 +419,7 @@ fun MyCodeContent(onBack: () -> Unit) {
             )
             
             Text(
-                text = "@danipinion",
+                text = "@$username",
                 color = White.copy(alpha = 0.6f),
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 12.dp)
@@ -368,11 +431,7 @@ fun MyCodeContent(onBack: () -> Unit) {
 @Composable
 fun FloatingDecoration(index: Int, screenWidth: Int, screenHeight: Int) {
     val infiniteTransition = rememberInfiniteTransition(label = "snowfall")
-    
-    // Random initial horizontal position
     val startX = remember { (0..screenWidth).random().toFloat() }
-    
-    // Slow falling animation (Y axis)
     val durationY = 8000 + (index * 1200)
     val delayY = (index * 400)
     
@@ -386,7 +445,6 @@ fun FloatingDecoration(index: Int, screenWidth: Int, screenHeight: Int) {
         label = "y"
     )
 
-    // Slight horizontal sway (X axis)
     val swayAmount = 25f + (index * 3)
     val durationX = 3000 + (index * 500)
     val xSway by infiniteTransition.animateFloat(
@@ -414,7 +472,6 @@ fun FloatingDecoration(index: Int, screenWidth: Int, screenHeight: Int) {
             .background(White.copy(alpha = if (index % 3 == 0) 0.4f else 0.2f), if (index % 2 == 0) CircleShape else RoundedCornerShape(2.dp))
     )
 }
-
 
 @Composable
 fun ScanTabSwitcher(selectedIndex: Int, onTabSelected: (Int) -> Unit) {

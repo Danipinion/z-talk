@@ -1,6 +1,7 @@
 package com.danipinion.z_talk.ui.screen.search
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,16 +28,45 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import com.danipinion.z_talk.ui.theme.*
+import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
+import com.danipinion.z_talk.ui.screen.auth.AuthState
+import com.danipinion.z_talk.data.remote.SearchUserResponse
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchUserScreen(onBack: () -> Unit) {
+fun SearchUserScreen(
+    viewModel: FriendViewModel,
+    token: String,
+    onBack: () -> Unit
+) {
     BackHandler { onBack() }
     var searchQuery by remember { mutableStateOf("") }
-    val dummyUsers = remember { getDummyUsers() }
-    val selectedUsers = remember { mutableStateListOf<String>() }
+    val searchState by viewModel.searchState.collectAsState()
+    val actionState by viewModel.actionState.collectAsState()
+
+    // Trigger search on query change with delay (debouncing)
+    LaunchedEffect(searchQuery) {
+        delay(300) // Debounce typing
+        viewModel.searchUsers(token, searchQuery)
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(actionState) {
+        if (actionState is AuthState.Success) {
+            snackbarHostState.showSnackbar((actionState as AuthState.Success<String>).data)
+            viewModel.resetActionState()
+            // Refresh search results
+            viewModel.searchUsers(token, searchQuery)
+        } else if (actionState is AuthState.Error) {
+            snackbarHostState.showSnackbar((actionState as AuthState.Error).message)
+            viewModel.resetActionState()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { 
@@ -54,34 +88,6 @@ fun SearchUserScreen(onBack: () -> Unit) {
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = White)
             )
-        },
-        bottomBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-                    .navigationBarsPadding()
-            ) {
-                Button(
-                    onClick = { /* TODO */ },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = RedPrimary,
-                        disabledContainerColor = RedPrimary.copy(alpha = 0.5f)
-                    ),
-                    enabled = selectedUsers.isNotEmpty()
-                ) {
-                    Text(
-                        "Add Friends", 
-                        fontSize = 16.sp, 
-                        fontWeight = FontWeight.Bold,
-                        color = White
-                    )
-                }
-            }
         },
         containerColor = White
     ) { paddingValues ->
@@ -122,44 +128,65 @@ fun SearchUserScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-                // Logic: Show only selected users OR exact matches
-                val filteredUsers = dummyUsers.filter { user ->
-                    val isSelected = selectedUsers.contains(user.name)
-                    val isExactMatch = searchQuery.isNotEmpty() && user.name.equals(searchQuery, ignoreCase = true)
-                    isSelected || isExactMatch
-                }
-
-                items(filteredUsers, key = { it.name }) { user ->
-                    UserItem(
-                        user = user,
-                        isSelected = selectedUsers.contains(user.name),
-                        onToggle = {
-                            if (selectedUsers.contains(user.name)) {
-                                selectedUsers.remove(user.name)
-                            } else {
-                                selectedUsers.add(user.name)
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (val state = searchState) {
+                    is AuthState.Loading -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.align(Alignment.Center),
+                            color = RedPrimary
+                        )
+                    }
+                    is AuthState.Success -> {
+                        val users = state.data
+                        if (users.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(48.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No exact match found", 
+                                    color = GreyText,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                items(users, key = { it.id }) { user ->
+                                    UserSearchItem(
+                                        user = user,
+                                        onAddClick = {
+                                            viewModel.sendFriendRequest(token, user.username)
+                                        },
+                                        onAcceptClick = {
+                                            viewModel.respondToFriendRequest(token, user.id, true)
+                                        }
+                                    )
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 82.dp, end = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = GreyDivider
+                                    )
+                                }
                             }
                         }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 82.dp, end = 16.dp),
-                        thickness = 0.5.dp,
-                        color = GreyDivider
-                    )
-                }
-                
-                if (filteredUsers.isEmpty()) {
-                    item {
+                    }
+                    is AuthState.Error -> {
+                        Text(
+                            text = state.message,
+                            color = RedPrimary,
+                            modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    else -> {
                         Box(
-                            modifier = Modifier.fillMaxWidth().padding(48.dp),
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (searchQuery.isEmpty()) "Search for friends to add" else "No exact match found", 
+                                text = "Search for friends to start talking!", 
                                 color = GreyText,
                                 textAlign = TextAlign.Center
                             )
@@ -171,13 +198,15 @@ fun SearchUserScreen(onBack: () -> Unit) {
     }
 }
 
-
 @Composable
-fun UserItem(user: UserData, isSelected: Boolean, onToggle: () -> Unit) {
+fun UserSearchItem(
+    user: SearchUserResponse,
+    onAddClick: () -> Unit,
+    onAcceptClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onToggle() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -189,7 +218,7 @@ fun UserItem(user: UserData, isSelected: Boolean, onToggle: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                user.name.take(1), 
+                user.username.take(1).uppercase(), 
                 fontWeight = FontWeight.Bold, 
                 color = RedPrimary,
                 fontSize = 18.sp
@@ -199,33 +228,90 @@ fun UserItem(user: UserData, isSelected: Boolean, onToggle: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         
         Text(
-            text = user.name,
+            text = user.username,
             modifier = Modifier.weight(1f),
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             color = Black
         )
-        
-        RadioButton(
-            selected = isSelected,
-            onClick = onToggle,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = RedPrimary,
-                unselectedColor = GreyDivider
-            )
-        )
+
+        when (user.relation) {
+            "none" -> {
+                Button(
+                    onClick = onAddClick,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PersonAdd,
+                        contentDescription = "Add Friend",
+                        modifier = Modifier.size(16.dp),
+                        tint = White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add", color = White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+            "sent" -> {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = GreyLight,
+                    border = BorderStroke(1.dp, GreyDivider)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HourglassEmpty,
+                            contentDescription = "Pending Request",
+                            modifier = Modifier.size(14.dp),
+                            tint = GreyText
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Pending", color = GreyText, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+            "received" -> {
+                Button(
+                    onClick = onAcceptClick,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Accept Request",
+                        modifier = Modifier.size(14.dp),
+                        tint = White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Accept", color = White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+            "friend" -> {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFE8F5E9),
+                    border = BorderStroke(1.dp, Color(0xFFC8E6C9))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = "Friend",
+                            modifier = Modifier.size(14.dp),
+                            tint = Color(0xFF4CAF50)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Friend", color = Color(0xFF4CAF50), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
     }
 }
-
-data class UserData(val name: String)
-
-fun getDummyUsers() = listOf(
-    UserData("Andreea Fox"),
-    UserData("Rose Nelson"),
-    UserData("Ronald Jordan"),
-    UserData("Rebecca Andrews"),
-    UserData("Victoria Reynolds"),
-    UserData("Joan Coleman"),
-    UserData("Devon Robinson"),
-    UserData("Zane Barber")
-)

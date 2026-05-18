@@ -23,6 +23,8 @@ import com.danipinion.z_talk.ui.screen.auth.RegisterScreen
 import com.danipinion.z_talk.ui.screen.auth.ForgotPasswordScreen
 import com.danipinion.z_talk.ui.screen.auth.AuthViewModel
 import com.danipinion.z_talk.data.repository.AuthRepository
+import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
+import com.danipinion.z_talk.data.repository.FriendRepository
 import com.danipinion.z_talk.data.remote.RetrofitClient
 import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
@@ -46,8 +48,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             ZtalkTheme {
                 val sessionManager = remember { SessionManager(applicationContext) }
-                val authViewModel = remember {
+                 val authViewModel = remember {
                     AuthViewModel(AuthRepository(RetrofitClient.apiService))
+                }
+                val friendViewModel = remember {
+                    FriendViewModel(FriendRepository(RetrofitClient.apiService))
                 }
                 var currentScreen by remember { 
                     mutableStateOf<Screen>(
@@ -87,9 +92,15 @@ class MainActivity : ComponentActivity() {
                             onNavigateToProfile = { currentScreen = Screen.Profile }
                         )
                         is Screen.SearchUser -> SearchUserScreen(
+                            viewModel = friendViewModel,
+                            token = sessionManager.getToken() ?: "",
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.Scan -> ScanScreen(
+                            viewModel = friendViewModel,
+                            token = sessionManager.getToken() ?: "",
+                            username = sessionManager.getUsername() ?: "",
+                            userId = sessionManager.getUserId() ?: "",
                             onBack = { currentScreen = Screen.Dashboard }
                         )
                         is Screen.ChatDetail -> ChatDetailScreen(
