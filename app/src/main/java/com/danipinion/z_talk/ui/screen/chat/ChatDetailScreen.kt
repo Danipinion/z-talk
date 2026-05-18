@@ -1413,16 +1413,8 @@ fun ChatInputBar(
     }
 }
 
-fun getDummyMessages(): List<Message> = listOf(
-    Message(1, "How's the tour plan for the summer vacation?", false),
-    Message(2, "vocation?", false),
-    Message(3, "Yeah, I was thinking we could explore the West Coast this year.", true),
-    Message(4, "Hey Olivia! have you thought about our tour plan for the summer vocation?", false),
-    Message(5, "Yeah, I was thinking we could explore the West Coast this year.", true),
-    Message(6, "That sounds awesome! I've always wanted to see the Golden Gate Bridge", false, isUnread = true),
-    Message(7, "Besides the Golden Gate Bridge, we should definitely visit Alcatraz, Fisherman's Wharf.", true, isUnread = true),
-    Message(8, "That sounds perfect. What do you want to do in San Francisco?", false, isUnread = true)
-)
+fun getDummyMessages(): List<Message> = emptyList()
+
 
 private fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
