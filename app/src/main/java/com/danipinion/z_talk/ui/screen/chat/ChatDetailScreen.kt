@@ -48,9 +48,15 @@ import androidx.compose.ui.window.PopupProperties
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.data.local.AppDatabase
 import com.danipinion.z_talk.data.local.entity.MessageEntity
+import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.data.remote.WebSocketManager
+import com.danipinion.z_talk.data.remote.RetrofitClient
+import com.danipinion.z_talk.data.remote.SendFriendRequestPayload
+import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class Message(
     val id: Int,
@@ -79,6 +85,7 @@ fun ChatDetailScreen(
     }
 
     val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
+    val friendsList by db.friendDao().getAllFriends().collectAsState(initial = emptyList())
 
     val allMessages = remember { mutableStateListOf<Message>() }
     var textState by remember { mutableStateOf("") }
@@ -123,6 +130,12 @@ fun ChatDetailScreen(
         isBlocked = dbMessages.any { it.text == "You blocked this friend" }
         isBlockedByOther = dbMessages.any { it.text == "You are blocked by this user" }
     }
+
+    LaunchedEffect(friendsList) {
+        val isStillFriend = friendsList.any { it.id == friendId }
+        isRemovedByOther = !isStillFriend
+    }
+
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(showMenu) {
@@ -1050,6 +1063,25 @@ fun ChatDetailScreen(
                                         onClick = { 
                                             isAddFriendDialogVisible = false
                                             isRequestPending = true 
+                                            scope.launch(Dispatchers.IO) {
+                                                try {
+                                                    val sessionManager = SessionManager(context)
+                                                    val token = sessionManager.getToken()
+                                                    if (token != null) {
+                                                        val response = RetrofitClient.apiService.sendFriendRequest(
+                                                            token = "Bearer $token",
+                                                            request = SendFriendRequestPayload(receiverUsername = username)
+                                                        )
+                                                        if (response.isSuccessful) {
+                                                            Log.d("ChatDetailScreen", "Friend request sent to $username successfully")
+                                                        } else {
+                                                            Log.e("ChatDetailScreen", "Failed to send friend request: ${response.code()}")
+                                                        }
+                                                    }
+                                                } catch (e: java.lang.Exception) {
+                                                    Log.e("ChatDetailScreen", "Error sending friend request: ${e.localizedMessage}")
+                                                }
+                                            }
                                         },
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(16.dp),
