@@ -84,6 +84,8 @@ class MainActivity : ComponentActivity() {
                             onBackToLogin = { currentScreen = Screen.Login }
                         )
                         is Screen.Dashboard -> ChatDashboardScreen(
+                            viewModel = friendViewModel,
+                            token = sessionManager.getToken() ?: "",
                             selectedTab = dashboardTab,
                             onTabSelected = { dashboardTab = it },
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },
