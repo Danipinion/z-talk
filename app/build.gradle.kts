@@ -69,6 +69,12 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // ZXing Core for QR Generation
+    implementation("com.google.zxing:core:3.5.3")
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
