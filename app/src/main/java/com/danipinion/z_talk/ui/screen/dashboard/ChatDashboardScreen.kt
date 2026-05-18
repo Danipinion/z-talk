@@ -226,33 +226,53 @@ fun ChatDashboardScreen(
                 it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
             }
 
-            val showEmpty = filteredChats.isEmpty() || showEmptyState
+            val isLoading = when (selectedTab) {
+                0 -> friendsState is AuthState.Loading
+                2 -> requestsState is AuthState.Loading
+                else -> false
+            }
 
-            AnimatedContent(
-                targetState = showEmpty,
-                transitionSpec = {
-                    (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
-                        .togetherWith(fadeOut(animationSpec = tween(400)))
-                },
-                label = "contentTransition"
-            ) { targetEmptyState ->
-                if (targetEmptyState) {
-                    if (debouncedSearchQuery.isNotEmpty()) {
-                        EmptySearchState(debouncedSearchQuery)
-                    } else {
-                        EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
-                    }
-                } else {
-                    ChatList(
-                        chats = filteredChats, 
-                        onItemClick = onNavigateToChat,
-                        onAccept = { chat ->
-                            viewModel?.respondToFriendRequest(token, chat.id, true)
-                        },
-                        onDecline = { chat ->
-                            viewModel?.respondToFriendRequest(token, chat.id, false)
-                        }
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = RedPrimary,
+                        strokeWidth = 3.dp,
+                        modifier = Modifier.size(48.dp)
                     )
+                }
+            } else {
+                val showEmpty = filteredChats.isEmpty() || showEmptyState
+
+                AnimatedContent(
+                    targetState = showEmpty,
+                    transitionSpec = {
+                        (fadeIn(animationSpec = tween(400)) + scaleIn(initialScale = 0.95f))
+                            .togetherWith(fadeOut(animationSpec = tween(400)))
+                    },
+                    label = "contentTransition"
+                ) { targetEmptyState ->
+                    if (targetEmptyState) {
+                        if (debouncedSearchQuery.isNotEmpty()) {
+                            EmptySearchState(debouncedSearchQuery)
+                        } else {
+                            EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
+                        }
+                    } else {
+                        ChatList(
+                            chats = filteredChats, 
+                            selectedTab = selectedTab,
+                            onItemClick = onNavigateToChat,
+                            onAccept = { chat ->
+                                viewModel?.respondToFriendRequest(token, chat.id, true)
+                            },
+                            onDecline = { chat ->
+                                viewModel?.respondToFriendRequest(token, chat.id, false)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -508,6 +528,7 @@ fun ChatFilterTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 @Composable
 fun ChatList(
     chats: List<ChatItemData>,
+    selectedTab: Int,
     onItemClick: (String) -> Unit,
     onAccept: (ChatItemData) -> Unit = {},
     onDecline: (ChatItemData) -> Unit = {}
@@ -518,6 +539,7 @@ fun ChatList(
         items(chats, key = { it.name }) { chat ->
             ChatListItem(
                 chat = chat,
+                selectedTab = selectedTab,
                 onClick = onItemClick,
                 onAccept = { onAccept(chat) },
                 onDecline = { onDecline(chat) },
@@ -535,6 +557,7 @@ fun ChatList(
 @Composable
 fun ChatListItem(
     chat: ChatItemData,
+    selectedTab: Int,
     onClick: (String) -> Unit,
     onAccept: () -> Unit = {},
     onDecline: () -> Unit = {},
@@ -578,7 +601,7 @@ fun ChatListItem(
                     color = Black
                 )
                 
-                if (chat.isUnread) {
+                if (chat.isUnread && selectedTab == 1) {
                     Box(
                         modifier = Modifier
                             .size(10.dp)
