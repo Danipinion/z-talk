@@ -87,7 +87,7 @@ fun ChatDetailScreen(
             Message(
                 id = entity.messageId.hashCode(),
                 text = entity.text,
-                isFromMe = entity.isSentByMe,
+                isFromMe = entity.senderId == senderId,
                 isUnread = false,
                 isGhost = false,
                 isTemporary = false
