@@ -84,21 +84,12 @@ class WebSocketManager(private val context: Context, private val userId: String)
                             )
                             db.chatRoomDao().insertChatRoom(chatRoom)
                         }.start()
-                    } else if (json.getString("type") == "clear_chat") {
-                        val roomId = json.getString("roomId")
-                        Thread {
-                            db.messageDao().deleteMessagesForRoom(roomId)
-                            db.chatRoomDao().deleteChatRoom(roomId)
-                        }.start()
                     } else if (json.getString("type") == "remove_friend") {
                         val senderId = json.getString("senderId")
                         val receiverId = json.getString("receiverId")
                         val partnerId = if (senderId == userId) receiverId else senderId
-                        val roomId = if (userId < partnerId) "${userId}_${partnerId}" else "${partnerId}_${userId}"
                         Thread {
                             db.friendDao().deleteFriendById(partnerId)
-                            db.messageDao().deleteMessagesForRoom(roomId)
-                            db.chatRoomDao().deleteChatRoom(roomId)
                         }.start()
                     } else if (json.getString("type") == "block_user") {
                         val senderId = json.getString("senderId")
