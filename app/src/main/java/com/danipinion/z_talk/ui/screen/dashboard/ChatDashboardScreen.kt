@@ -159,7 +159,7 @@ fun ChatDashboardScreen(
                 label = "contentTransition"
             ) { targetEmptyState ->
                 if (targetEmptyState) {
-                    EmptyChatState()
+                    EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
                 } else {
                     val filteredChats = when (selectedTab) {
                         1 -> chats.filter { it.isUnread && !it.isRequest }
@@ -170,8 +170,12 @@ fun ChatDashboardScreen(
                         it.lastMessage.contains(debouncedSearchQuery, ignoreCase = true)
                     }
 
-                    if (filteredChats.isEmpty() && debouncedSearchQuery.isNotEmpty()) {
-                        EmptySearchState(debouncedSearchQuery)
+                    if (filteredChats.isEmpty()) {
+                        if (debouncedSearchQuery.isNotEmpty()) {
+                            EmptySearchState(debouncedSearchQuery)
+                        } else {
+                            EmptyChatState(selectedTab = selectedTab, onActionClick = { showBottomSheet = true })
+                        }
                     } else {
                         ChatList(filteredChats, onNavigateToChat)
                     }
@@ -532,73 +536,101 @@ fun ChatListItem(chat: ChatItemData, onClick: (String) -> Unit, modifier: Modifi
 }
 
 @Composable
-fun EmptyChatState() {
+fun EmptyChatState(selectedTab: Int, onActionClick: () -> Unit = {}) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    val icon = when (selectedTab) {
+        1 -> Icons.Default.CheckCircle
+        2 -> Icons.Default.GroupAdd
+        else -> Icons.Default.ChatBubbleOutline
+    }
+
+    val title = when (selectedTab) {
+        1 -> "All Caught Up! ✨"
+        2 -> "No Pending Requests"
+        else -> "No Conversations Yet"
+    }
+
+    val subtitle = when (selectedTab) {
+        1 -> "No unread messages right now.\nYou're completely caught up!"
+        2 -> "Incoming friend requests will\nappear here once they arrive."
+        else -> "Stay connected! Tap below to start\na new chat with your besties."
+    }
+
+    val showButton = selectedTab == 0
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        val pulseScale by infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.05f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(1500, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "scale"
-        )
-
         Box(
             modifier = Modifier
                 .size(150.dp)
                 .scale(pulseScale)
                 .clip(CircleShape)
-                .background(RedPastel.copy(alpha = 0.5f)),
+                .background(
+                    if (selectedTab == 1) Color(0xFFE8F5E9)
+                    else RedPastel.copy(alpha = 0.5f)
+                ),
             contentAlignment = Alignment.Center
         ) {
              Icon(
-                imageVector = Icons.Default.LocalFireDepartment,
+                imageVector = icon,
                 contentDescription = null,
-                tint = RedPrimary,
-                modifier = Modifier.size(80.dp)
+                tint = if (selectedTab == 1) Color(0xFF4CAF50) else RedPrimary,
+                modifier = Modifier.size(72.dp)
             )
         }
         
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = "Welcome to Chat!",
+            text = title,
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Black
+            color = Black,
+            textAlign = TextAlign.Center
         )
         
         Spacer(modifier = Modifier.height(12.dp))
         
         Text(
-            text = "Feel free to start a new conversation\nby tapping the button below.",
+            text = subtitle,
             textAlign = TextAlign.Center,
-            fontSize = 16.sp,
+            fontSize = 15.sp,
             color = GreyText,
-            lineHeight = 24.sp
+            lineHeight = 22.sp
         )
         
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        Button(
-            onClick = { /* TODO */ },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = RedPastel,
-                contentColor = RedPrimary
-            ),
-            shape = RoundedCornerShape(16.dp),
-            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Start New Chat", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        if (showButton) {
+            Spacer(modifier = Modifier.height(40.dp))
+            
+            Button(
+                onClick = onActionClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RedPastel,
+                    contentColor = RedPrimary
+                ),
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Start New Chat", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
         }
     }
 }
