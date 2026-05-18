@@ -4,6 +4,7 @@ import { logger } from 'hono/logger'
 import { cors } from 'hono/cors'
 import { ENV } from './config/env.js'
 import { authRouter } from './routes/auth-routes.js'
+import { friendRouter } from './routes/friend-routes.js'
 
 const app = new Hono()
 
@@ -14,8 +15,9 @@ app.get('/', (c) => {
   return c.text('Z-Talk SOLID Backend is running!')
 })
 
-// Mount authentication routes under /api/auth
+// Mount routes
 app.route('/api/auth', authRouter)
+app.route('/api/friends', friendRouter)
 
 console.log(`Server is running on port ${ENV.PORT}`)
 
