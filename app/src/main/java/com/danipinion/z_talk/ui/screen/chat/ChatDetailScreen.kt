@@ -92,6 +92,9 @@ fun ChatDetailScreen(
     val partnerAvatar = remember(friendsList, friendId) {
         friendsList.find { it.id == friendId }?.avatar
     }
+    val partnerMood = remember(friendsList, friendId) {
+        friendsList.find { it.id == friendId }?.mood
+    }
 
     val allMessages = remember { mutableStateListOf<Message>() }
     var textState by remember { mutableStateOf("") }
@@ -237,13 +240,23 @@ fun ChatDetailScreen(
                                     )
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
                                     Text(
                                         text = if (isTemporaryMode) "Ghost Session" else username,
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = if (isTemporaryMode) RedPrimary else Black
                                     )
+                                    if (!isTemporaryMode && !partnerMood.isNullOrEmpty()) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = partnerMood,
+                                            fontSize = 18.sp
+                                        )
+                                    }
                                 }
                             }
 

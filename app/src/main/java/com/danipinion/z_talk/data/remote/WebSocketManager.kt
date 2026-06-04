@@ -74,13 +74,17 @@ class WebSocketManager(private val context: Context, private val userId: String)
 
                             val cachedFriend = db.friendDao().getFriendById(partnerUid)
                             val partnerUsername = cachedFriend?.username ?: "Chat Partner"
+                            val partnerAvatar = cachedFriend?.avatar
+                            val partnerMood = cachedFriend?.mood
 
                             val chatRoom = ChatRoomEntity(
                                 roomId = roomId,
                                 partnerUid = partnerUid,
                                 partnerUsername = partnerUsername,
                                 lastMessage = messageText,
-                                lastTimestamp = timestamp
+                                lastTimestamp = timestamp,
+                                partnerAvatar = partnerAvatar,
+                                partnerMood = partnerMood
                             )
                             db.chatRoomDao().insertChatRoom(chatRoom)
                         }.start()

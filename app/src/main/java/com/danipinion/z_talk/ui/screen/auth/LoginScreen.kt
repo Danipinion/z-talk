@@ -18,7 +18,7 @@ import com.danipinion.z_talk.ui.theme.*
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
-    onLoginSuccess: (token: String, username: String, userId: String, avatar: String?) -> Unit,
+    onLoginSuccess: (token: String, username: String, userId: String, avatar: String?, mood: String?) -> Unit,
     onNavigateToRegister: () -> Unit,
     onNavigateToForgotPassword: () -> Unit
 ) {
@@ -37,7 +37,8 @@ fun LoginScreen(
             val uName = response.user?.username ?: ""
             val uId = response.user?.id ?: ""
             val avatar = response.user?.avatar
-            onLoginSuccess(token, uName, uId, avatar)
+            val mood = response.user?.mood
+            onLoginSuccess(token, uName, uId, avatar, mood)
             viewModel.resetStates()
         }
     }
