@@ -37,6 +37,36 @@ class WebSocketManager(private val context: Context, private val userId: String)
                     put("userId", userId)
                 }
                 webSocket.send(registerPayload.toString())
+
+                // Sync pending messages
+                Thread {
+                    try {
+                        Thread.sleep(500)
+                        val pending = db.messageDao().getPendingMessages()
+                        Log.d(TAG, "Syncing ${pending.size} pending messages")
+                        for (msg in pending) {
+                            val partnerId = if (userId == msg.senderId) {
+                                val parts = msg.roomId.split("_")
+                                if (parts.size == 2) {
+                                    if (parts[0] == userId) parts[1] else parts[0]
+                                } else ""
+                            } else msg.senderId
+
+                            if (partnerId.isNotEmpty()) {
+                                sendMessage(
+                                    roomId = msg.roomId,
+                                    receiverId = partnerId,
+                                    text = msg.text,
+                                    isGhost = msg.isGhost,
+                                    isTemporary = msg.isTemporary,
+                                    ghostMessageId = msg.ghostMessageId
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error syncing pending messages: ${e.localizedMessage}")
+                    }
+                }.start()
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -71,6 +101,9 @@ class WebSocketManager(private val context: Context, private val userId: String)
                         )
 
                         Thread {
+                            if (isSentByMe) {
+                                db.messageDao().deleteOnePendingMessage(roomId, messageText)
+                            }
                             // 1. Insert message to Room
                             db.messageDao().insertMessage(messageEntity)
 
@@ -178,7 +211,48 @@ class WebSocketManager(private val context: Context, private val userId: String)
                 put("ghostMessageId", ghostMessageId)
             }
         }
-        webSocket?.send(payload.toString())
+        val sent = if (webSocket != null) {
+            webSocket?.send(payload.toString()) ?: false
+        } else {
+            false
+        }
+
+        if (!sent && !isTemporary) {
+            val timestamp = System.currentTimeMillis()
+            val pendingMsg = MessageEntity(
+                messageId = "pending_" + timestamp + "_" + (1000..9999).random(),
+                roomId = roomId,
+                senderId = userId,
+                text = text,
+                timestamp = timestamp,
+                isSentByMe = true,
+                isGhost = isGhost,
+                isUsed = false,
+                isTemporary = false,
+                ghostMessageId = ghostMessageId,
+                isUnread = false,
+                isPending = true
+            )
+            Thread {
+                db.messageDao().insertMessage(pendingMsg)
+
+                val cachedFriend = db.friendDao().getFriendById(receiverId)
+                val partnerUsername = cachedFriend?.username ?: "Chat Partner"
+                val partnerAvatar = cachedFriend?.avatar
+                val partnerMood = cachedFriend?.mood
+
+                val chatRoom = ChatRoomEntity(
+                    roomId = roomId,
+                    partnerUid = receiverId,
+                    partnerUsername = partnerUsername,
+                    lastMessage = text,
+                    lastTimestamp = timestamp,
+                    partnerAvatar = partnerAvatar,
+                    partnerMood = partnerMood
+                )
+                db.chatRoomDao().insertChatRoom(chatRoom)
+            }.start()
+        }
     }
 
     fun sendUseGhost(roomId: String, receiverId: String, messageId: String) {
