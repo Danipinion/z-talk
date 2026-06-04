@@ -27,6 +27,15 @@ interface MessageDao {
     @Query("UPDATE messages SET isUsed = 1 WHERE messageId = :messageId")
     fun markGhostAsUsed(messageId: String): Int
 
+    @Query("UPDATE messages SET isUnread = 0 WHERE roomId = :roomId AND isSentByMe = 0")
+    fun markMessagesAsRead(roomId: String): Int
+
+    @Query("SELECT COUNT(*) FROM messages WHERE roomId = :roomId AND isSentByMe = 0 AND isUnread = 1")
+    fun getUnreadCountForRoom(roomId: String): Flow<Int>
+
+    @Query("SELECT * FROM messages WHERE isUnread = 1 AND isSentByMe = 0")
+    fun getAllUnreadMessages(): Flow<List<MessageEntity>>
+
     @Query("DELETE FROM messages")
     fun deleteAllMessages(): Int
 }
