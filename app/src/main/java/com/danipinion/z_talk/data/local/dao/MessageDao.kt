@@ -21,6 +21,12 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE roomId = :roomId")
     fun deleteMessagesForRoom(roomId: String): Int
 
+    @Query("DELETE FROM messages WHERE roomId = :roomId AND isTemporary = 1")
+    fun deleteTemporaryMessages(roomId: String): Int
+
+    @Query("UPDATE messages SET isUsed = 1 WHERE messageId = :messageId")
+    fun markGhostAsUsed(messageId: String): Int
+
     @Query("DELETE FROM messages")
     fun deleteAllMessages(): Int
 }

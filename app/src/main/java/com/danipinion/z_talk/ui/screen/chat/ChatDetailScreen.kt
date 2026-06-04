@@ -69,7 +69,9 @@ data class Message(
     val isGhost: Boolean = false,
     val isTemporary: Boolean = false,
     val isUsed: Boolean = false,
-    val isStatus: Boolean = false
+    val isStatus: Boolean = false,
+    val ghostMessageId: String? = null,
+    val realMessageId: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -102,7 +104,7 @@ fun ChatDetailScreen(
     
     var isGhostMode by remember { mutableStateOf(false) }
     var isTemporaryMode by remember { mutableStateOf(false) }
-    var activeGhostId by remember { mutableIntStateOf(-1) }
+    var activeGhostId by remember { mutableStateOf("") }
     var showMenu by remember { mutableStateOf(false) }
     var isMenuVisible by remember { mutableStateOf(false) }
     var showRemoveFriendDialog by remember { mutableStateOf(false) }
@@ -131,9 +133,12 @@ fun ChatDetailScreen(
                 text = entity.text,
                 isFromMe = entity.senderId == senderId,
                 isUnread = false,
-                isGhost = false,
-                isTemporary = false,
-                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked")
+                isGhost = entity.isGhost,
+                isUsed = entity.isUsed,
+                isTemporary = entity.isTemporary,
+                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
+                ghostMessageId = entity.ghostMessageId,
+                realMessageId = entity.messageId
             )
         })
         isBlocked = dbMessages.any { it.text == "You blocked this friend" }
@@ -183,6 +188,23 @@ fun ChatDetailScreen(
         else allMessages.filter { it.text.contains(debouncedQuery, ignoreCase = true) && !it.isStatus }
     }
     
+    // Clean up temporary messages from database when leaving Ghost Session or screen
+    LaunchedEffect(isTemporaryMode) {
+        if (!isTemporaryMode) {
+            withContext(Dispatchers.IO) {
+                db.messageDao().deleteTemporaryMessages(roomId)
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            Thread {
+                db.messageDao().deleteTemporaryMessages(roomId)
+            }.start()
+        }
+    }
+    
     // Screenshot Protection (FLAG_SECURE) logic
     DisposableEffect(isTemporaryMode) {
         val activity = context.findActivity()
@@ -215,8 +237,7 @@ fun ChatDetailScreen(
 
     val displayMessages = if (isTemporaryMode) {
         // Show only temporary messages for the current active ghost session
-        allMessages.filter { it.isTemporary && it.id > activeGhostId && it.id < activeGhostId + 1000 }
-        // Note: Using a simpler logic since dummy messages use high IDs
+        allMessages.filter { it.isTemporary && it.ghostMessageId == activeGhostId }
     } else {
         allMessages.filter { !it.isTemporary }
     }
@@ -367,13 +388,11 @@ fun ChatDetailScreen(
                     if (!isTemporaryMode) {
                         IconButton(
                             onClick = { 
-                                allMessages.add(
-                                    Message(
-                                        id = allMessages.size + 1,
-                                        text = "Ghost Message",
-                                        isFromMe = true,
-                                        isGhost = true
-                                    )
+                                webSocketManager?.sendMessage(
+                                    roomId = roomId,
+                                    receiverId = friendId,
+                                    text = "Ghost Message",
+                                    isGhost = true
                                 )
                             },
                             enabled = !isBlocked && !isBlockedByOther && !isRemovedByOther,
@@ -504,7 +523,17 @@ fun ChatDetailScreen(
                     onTextChange = { textState = it },
                     onSend = { 
                         if (textState.isNotBlank()) {
-                            webSocketManager?.sendMessage(roomId, friendId, textState)
+                            if (isTemporaryMode) {
+                                webSocketManager?.sendMessage(
+                                    roomId = roomId,
+                                    receiverId = friendId,
+                                    text = textState,
+                                    isTemporary = true,
+                                    ghostMessageId = activeGhostId
+                                )
+                            } else {
+                                webSocketManager?.sendMessage(roomId, friendId, textState)
+                            }
                             textState = ""
                         }
                     },
@@ -587,21 +616,11 @@ fun ChatDetailScreen(
                                 avatar = partnerAvatar,
                                 isHighlighted = message.id == highlightedMessageId,
                                 onGhostClick = { 
-                                    if (message.isGhost && !message.isUsed) {
-                                        activeGhostId = message.id
-                                        
-                                        // Mark as used
-                                        val idx = allMessages.indexOfFirst { it.id == message.id }
-                                        if (idx != -1) {
-                                            allMessages[idx] = allMessages[idx].copy(isUsed = true)
+                                    if (message.isGhost) {
+                                        activeGhostId = message.realMessageId
+                                        if (!message.isUsed) {
+                                            webSocketManager?.sendUseGhost(roomId, friendId, message.realMessageId)
                                         }
-
-                                        // Add dummy messages for THIS specific session
-                                        allMessages.addAll(listOf(
-                                            Message(id = activeGhostId + 1, text = "Psst... This is a fresh Ghost Session.", isFromMe = false, isTemporary = true),
-                                            Message(id = activeGhostId + 2, text = "Only messages from this invite appear here.", isFromMe = true, isTemporary = true),
-                                            Message(id = activeGhostId + 3, text = "Everything wipes when you leave. 🤫", isFromMe = false, isTemporary = true)
-                                        ))
                                         isTemporaryMode = true 
                                     }
                                 }

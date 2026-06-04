@@ -10,5 +10,9 @@ data class MessageEntity(
     val senderId: String,
     val text: String,
     val timestamp: Long,
-    val isSentByMe: Boolean              // Flag lokal untuk mempermudah UI di Jetpack Compose
+    val isSentByMe: Boolean,             // Flag lokal untuk mempermudah UI di Jetpack Compose
+    val isGhost: Boolean = false,
+    val isUsed: Boolean = false,
+    val isTemporary: Boolean = false,
+    val ghostMessageId: String? = null
 )
