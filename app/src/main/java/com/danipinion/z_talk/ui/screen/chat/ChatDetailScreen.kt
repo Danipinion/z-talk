@@ -43,6 +43,14 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.paging.compose.itemContentType
+import androidx.paging.compose.itemKey
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
+import kotlinx.coroutines.flow.map
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.Image
@@ -91,15 +99,6 @@ fun ChatDetailScreen(
         if (senderId < friendId) "${senderId}_${friendId}" else "${friendId}_${senderId}"
     }
 
-    val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
-
-    LaunchedEffect(dbMessages, roomId) {
-        if (dbMessages.any { it.isUnread && !it.isSentByMe }) {
-            withContext(Dispatchers.IO) {
-                db.messageDao().markMessagesAsRead(roomId)
-            }
-        }
-    }
     val friendsList by db.friendDao().getAllFriends().collectAsState(initial = emptyList())
     val partnerAvatar = remember(friendsList, friendId) {
         friendsList.find { it.id == friendId }?.avatar
@@ -108,7 +107,6 @@ fun ChatDetailScreen(
         friendsList.find { it.id == friendId }?.mood
     }
 
-    val allMessages = remember { mutableStateListOf<Message>() }
     val selectedMessageIds = remember { mutableStateListOf<String>() }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var isDeleteConfirmDialogVisible by remember { mutableStateOf(false) }
@@ -124,8 +122,13 @@ fun ChatDetailScreen(
     var isDialogVisible by remember { mutableStateOf(false) }
     var showBlockUserDialog by remember { mutableStateOf(false) }
     var isBlockDialogVisible by remember { mutableStateOf(false) }
-    var isBlocked by remember { mutableStateOf(false) }
-    var isBlockedByOther by remember { mutableStateOf(false) }
+    val isBlocked by remember(roomId) {
+        db.messageDao().hasMessageWithTextFlow(roomId, "You blocked this friend")
+    }.collectAsState(initial = false)
+
+    val isBlockedByOther by remember(roomId) {
+        db.messageDao().hasMessageWithTextFlow(roomId, "You are blocked by this user")
+    }.collectAsState(initial = false)
     var isRemovedByOther by remember { mutableStateOf(false) }
     var isRequestPending by remember { mutableStateOf(false) }
     var showDeleteChatDialog by remember { mutableStateOf(false) }
@@ -138,26 +141,6 @@ fun ChatDetailScreen(
     var highlightedMessageId by remember { mutableStateOf<Int?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(dbMessages) {
-        allMessages.clear()
-        allMessages.addAll(dbMessages.map { entity ->
-            Message(
-                id = entity.messageId.hashCode(),
-                text = entity.text,
-                isFromMe = entity.senderId == senderId,
-                isUnread = false,
-                isGhost = entity.isGhost,
-                isUsed = entity.isUsed,
-                isTemporary = entity.isTemporary,
-                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
-                ghostMessageId = entity.ghostMessageId,
-                realMessageId = entity.messageId,
-                isPending = entity.isPending
-            )
-        })
-        isBlocked = dbMessages.any { it.text == "You blocked this friend" }
-        isBlockedByOther = dbMessages.any { it.text == "You are blocked by this user" }
-    }
 
     LaunchedEffect(friendsList) {
         val isStillFriend = friendsList.any { it.id == friendId }
@@ -197,9 +180,30 @@ fun ChatDetailScreen(
         debouncedQuery = searchQuery
     }
 
-    val searchResults = remember(debouncedQuery, allMessages) {
-        if (debouncedQuery.isBlank()) emptyList<Message>()
-        else allMessages.filter { it.text.contains(debouncedQuery, ignoreCase = true) && !it.isStatus }
+    val searchResultsState = remember(roomId, debouncedQuery) {
+        if (debouncedQuery.isBlank()) {
+            kotlinx.coroutines.flow.flowOf(emptyList<MessageEntity>())
+        } else {
+            db.messageDao().searchMessagesForRoom(roomId, "%$debouncedQuery%")
+        }
+    }.collectAsState(initial = emptyList())
+
+    val searchResults = remember(searchResultsState.value) {
+        searchResultsState.value.map { entity ->
+            Message(
+                id = entity.messageId.hashCode(),
+                text = entity.text,
+                isFromMe = entity.senderId == senderId,
+                isUnread = false,
+                isGhost = entity.isGhost,
+                isUsed = entity.isUsed,
+                isTemporary = entity.isTemporary,
+                isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
+                ghostMessageId = entity.ghostMessageId,
+                realMessageId = entity.messageId,
+                isPending = entity.isPending
+            )
+        }
     }
     
     // Clean up temporary messages from database when leaving Ghost Session or screen
@@ -259,23 +263,111 @@ fun ChatDetailScreen(
         }
     }
 
-    // Auto scroll to bottom
-    val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
-    LaunchedEffect(allMessages.size, isKeyboardVisible, isTemporaryMode) {
-        if (allMessages.isNotEmpty()) {
-            listState.animateScrollToItem(allMessages.size) // Approximate
+    val pager = remember(roomId) {
+        androidx.paging.Pager(
+            config = androidx.paging.PagingConfig(
+                pageSize = 15,
+                enablePlaceholders = false,
+                initialLoadSize = 15
+            ),
+            pagingSourceFactory = { db.messageDao().getMessagesForRoomPaging(roomId) }
+        )
+    }
+
+    val messagesFlow = remember(roomId, isTemporaryMode, activeGhostId) {
+        if (isTemporaryMode) {
+            db.messageDao().getTemporaryMessagesFlow(roomId, activeGhostId).map { entities ->
+                val sorted = entities.reversed()
+                androidx.paging.PagingData.from(sorted.map { entity ->
+                    Message(
+                        id = entity.messageId.hashCode(),
+                        text = entity.text,
+                        isFromMe = entity.senderId == senderId,
+                        isUnread = false,
+                        isGhost = entity.isGhost,
+                        isUsed = entity.isUsed,
+                        isTemporary = entity.isTemporary,
+                        isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
+                        ghostMessageId = entity.ghostMessageId,
+                        realMessageId = entity.messageId,
+                        isPending = entity.isPending
+                    )
+                })
+            }
+        } else {
+            pager.flow.map { pagingData ->
+                pagingData.map { entity ->
+                    Message(
+                        id = entity.messageId.hashCode(),
+                        text = entity.text,
+                        isFromMe = entity.senderId == senderId,
+                        isUnread = false,
+                        isGhost = entity.isGhost,
+                        isUsed = entity.isUsed,
+                        isTemporary = entity.isTemporary,
+                        isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
+                        ghostMessageId = entity.ghostMessageId,
+                        realMessageId = entity.messageId,
+                        isPending = entity.isPending
+                    )
+                }
+            }
         }
     }
 
-    val displayMessages = if (isTemporaryMode) {
-        // Show only temporary messages for the current active ghost session
-        allMessages.filter { it.isTemporary && it.ghostMessageId == activeGhostId }
-    } else {
-        allMessages.filter { !it.isTemporary }
+    val lazyPagingItems = messagesFlow.collectAsLazyPagingItems()
+
+    // Read unread count directly from database
+    val unreadCount by db.messageDao().getUnreadCountForRoom(roomId).collectAsState(initial = 0)
+
+    // Mark messages as read when unread count is > 0
+    LaunchedEffect(roomId) {
+        db.messageDao().getUnreadCountForRoom(roomId).collect { count ->
+            if (count > 0) {
+                withContext(Dispatchers.IO) {
+                    db.messageDao().markMessagesAsRead(roomId)
+                }
+            }
+        }
     }
-    
-    val unreadCount = remember(displayMessages) { displayMessages.count { it.isUnread } }
-    val firstUnreadIndex = remember(displayMessages) { displayMessages.indexOfFirst { it.isUnread } }
+
+    // derivedStateOf to locate the first unread message index from the bottom (newest messages first)
+    val firstUnreadIndex by remember(lazyPagingItems.itemCount) {
+        derivedStateOf {
+            var highestIndex = -1
+            for (i in 0 until lazyPagingItems.itemCount) {
+                val msg = lazyPagingItems.peek(i)
+                if (msg != null && msg.isUnread) {
+                    highestIndex = i
+                }
+            }
+            highestIndex
+        }
+    }
+
+    // derivedStateOf to show/hide "Scroll to bottom" button
+    val showScrollToBottomButton by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 3
+        }
+    }
+
+    val isAtBottom by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex <= 2
+        }
+    }
+
+    // Auto scroll to bottom
+    val lastMessageId = if (lazyPagingItems.itemCount > 0) lazyPagingItems.peek(0)?.realMessageId else null
+    val isKeyboardVisible = WindowInsets.ime.asPaddingValues().calculateBottomPadding() > 0.dp
+    LaunchedEffect(lastMessageId, isKeyboardVisible) {
+        if (lazyPagingItems.itemCount > 0) {
+            if (isAtBottom || isKeyboardVisible) {
+                listState.animateScrollToItem(0)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -370,7 +462,9 @@ fun ChatDetailScreen(
                                                     onClick = { 
                                                         isMenuVisible = false
                                                         if (isBlocked) {
-                                                            isBlocked = false
+                                                            Thread {
+                                                                db.messageDao().deleteMessagesByText(roomId, "You blocked this friend")
+                                                            }.start()
                                                         } else {
                                                             showBlockUserDialog = true
                                                         }
@@ -599,7 +693,7 @@ fun ChatDetailScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (displayMessages.isEmpty()) {
+            if (lazyPagingItems.itemCount == 0 && lazyPagingItems.loadState.refresh !is androidx.paging.LoadState.Loading) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -640,54 +734,97 @@ fun ChatDetailScreen(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    reverseLayout = true
                 ) {
-                    itemsIndexed(displayMessages) { index, message ->
-                        if (message.isStatus) {
-                            StatusSeparator(text = message.text)
-                        } else {
-                            if (index == firstUnreadIndex && unreadCount > 0 && !isTemporaryMode) {
-                                UnreadSeparator(unreadCount)
+                    items(
+                        count = lazyPagingItems.itemCount,
+                        key = lazyPagingItems.itemKey { it.realMessageId },
+                        contentType = lazyPagingItems.itemContentType {
+                            when {
+                                it.isStatus -> "status"
+                                it.isGhost -> "ghost"
+                                it.isTemporary -> "temporary"
+                                else -> "text"
                             }
-                            
-                            val prevMessage = if (index > 0) displayMessages[index - 1] else null
-                            val nextMessage = if (index + 1 < displayMessages.size) displayMessages[index + 1] else null
-                            
-                            val isFirstInGroup = prevMessage == null || prevMessage.isFromMe != message.isFromMe
-                            val isLastInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
-                            
-                            if (isFirstInGroup && index > 0 && index != firstUnreadIndex && (prevMessage?.isStatus == false)) {
-                                Spacer(modifier = Modifier.height(12.dp))
-                            }
-                            
-                            ChatBubble(
-                                message = message, 
-                                showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
-                                avatar = partnerAvatar,
-                                isHighlighted = message.id == highlightedMessageId,
-                                isSelected = selectedMessageIds.contains(message.realMessageId),
-                                onClick = {
-                                    if (selectedMessageIds.isNotEmpty()) {
+                        }
+                    ) { index ->
+                        val message = lazyPagingItems[index]
+                        if (message != null) {
+                            if (message.isStatus) {
+                                StatusSeparator(text = message.text)
+                            } else {
+                                if (index == firstUnreadIndex && unreadCount > 0 && !isTemporaryMode) {
+                                    UnreadSeparator(unreadCount)
+                                }
+                                
+                                val prevMessage = if (index > 0) lazyPagingItems.peek(index - 1) else null
+                                val nextMessage = if (index + 1 < lazyPagingItems.itemCount) lazyPagingItems.peek(index + 1) else null
+                                
+                                val isFirstInGroup = nextMessage == null || nextMessage.isFromMe != message.isFromMe
+                                val isLastInGroup = prevMessage == null || prevMessage.isFromMe != message.isFromMe
+                                
+                                if (isFirstInGroup && index < lazyPagingItems.itemCount - 1 && index != firstUnreadIndex && (nextMessage?.isStatus == false)) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                                
+                                ChatBubble(
+                                    message = message, 
+                                    showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
+                                    avatar = partnerAvatar,
+                                    isHighlighted = message.id == highlightedMessageId,
+                                    isSelected = selectedMessageIds.contains(message.realMessageId),
+                                    onClick = {
+                                        if (selectedMessageIds.isNotEmpty()) {
+                                            if (selectedMessageIds.contains(message.realMessageId)) {
+                                                selectedMessageIds.remove(message.realMessageId)
+                                            } else {
+                                                selectedMessageIds.add(message.realMessageId)
+                                            }
+                                        } else if (message.isGhost && !message.isUsed) {
+                                            activeGhostId = message.realMessageId
+                                            isTemporaryMode = true 
+                                        }
+                                    },
+                                    onLongClick = {
                                         if (selectedMessageIds.contains(message.realMessageId)) {
                                             selectedMessageIds.remove(message.realMessageId)
                                         } else {
                                             selectedMessageIds.add(message.realMessageId)
                                         }
-                                    } else if (message.isGhost && !message.isUsed) {
-                                        activeGhostId = message.realMessageId
-                                        isTemporaryMode = true 
                                     }
-                                },
-                                onLongClick = {
-                                    if (selectedMessageIds.contains(message.realMessageId)) {
-                                        selectedMessageIds.remove(message.realMessageId)
-                                    } else {
-                                        selectedMessageIds.add(message.realMessageId)
-                                    }
-                                }
-                            )
+                                )
+                            }
                         }
                     }
+                }
+            }
+
+            // Scroll to Bottom FAB
+            AnimatedVisibility(
+                visible = showScrollToBottomButton,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            listState.animateScrollToItem(0)
+                        }
+                    },
+                    containerColor = Color.Black.copy(alpha = 0.6f),
+                    contentColor = White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Scroll to bottom",
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
@@ -822,8 +959,15 @@ fun ChatDetailScreen(
 
         // Delete Messages Confirmation Dialog
         if (showDeleteConfirmDialog) {
-            val selectedMessages = remember(selectedMessageIds.toList(), allMessages.toList()) {
-                allMessages.filter { selectedMessageIds.contains(it.realMessageId) }
+            val selectedMessages = remember(selectedMessageIds.toList(), lazyPagingItems.itemCount) {
+                val list = mutableListOf<Message>()
+                for (i in 0 until lazyPagingItems.itemCount) {
+                    val msg = lazyPagingItems.peek(i)
+                    if (msg != null && selectedMessageIds.contains(msg.realMessageId)) {
+                        list.add(msg)
+                    }
+                }
+                list
             }
             val allSentByMe = remember(selectedMessages) {
                 selectedMessages.isNotEmpty() && selectedMessages.all { it.isFromMe }
@@ -1098,7 +1242,6 @@ fun ChatDetailScreen(
 
                                     Button(
                                         onClick = { 
-                                            isBlocked = true
                                             isBlockDialogVisible = false
                                             webSocketManager?.sendBlockUser(friendId)
                                             Thread {
@@ -1476,20 +1619,35 @@ fun ChatDetailScreen(
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(searchResults) { message ->
+                            items(searchResultsState.value) { entity ->
+                                val message = remember(entity) {
+                                    Message(
+                                        id = entity.messageId.hashCode(),
+                                        text = entity.text,
+                                        isFromMe = entity.senderId == senderId,
+                                        isUnread = false,
+                                        isGhost = entity.isGhost,
+                                        isUsed = entity.isUsed,
+                                        isTemporary = entity.isTemporary,
+                                        isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
+                                        ghostMessageId = entity.ghostMessageId,
+                                        realMessageId = entity.messageId,
+                                        isPending = entity.isPending
+                                    )
+                                }
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            val index = displayMessages.indexOfFirst { it.id == message.id }
-                                            if (index != -1) {
-                                                scope.launch {
-                                                    highlightedMessageId = message.id
-                                                    isSearchVisible = false
-                                                    searchQuery = ""
-                                                    debouncedQuery = ""
-                                                    listState.animateScrollToItem(index)
+                                            scope.launch {
+                                                val index = withContext(Dispatchers.IO) {
+                                                    db.messageDao().getMessageIndexByTimestamp(roomId, entity.timestamp)
                                                 }
+                                                highlightedMessageId = message.id
+                                                isSearchVisible = false
+                                                searchQuery = ""
+                                                debouncedQuery = ""
+                                                listState.animateScrollToItem(index)
                                             }
                                         }
                                 ) {

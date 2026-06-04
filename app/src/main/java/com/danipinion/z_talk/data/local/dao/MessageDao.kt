@@ -12,6 +12,12 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp ASC")
     fun getMessagesForRoom(roomId: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp DESC LIMIT :limit")
+    fun getMessagesForRoomPaged(roomId: String, limit: Int): Flow<List<MessageEntity>>
+
+    @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp DESC")
+    fun getMessagesForRoomPaging(roomId: String): androidx.paging.PagingSource<Int, MessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertMessage(message: MessageEntity)
 
@@ -47,6 +53,21 @@ interface MessageDao {
 
     @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp DESC LIMIT 1")
     fun getNewestMessageForRoom(roomId: String): MessageEntity?
+
+    @Query("SELECT * FROM messages WHERE roomId = :roomId AND isTemporary = 1 AND ghostMessageId = :ghostId ORDER BY timestamp DESC")
+    fun getTemporaryMessagesFlow(roomId: String, ghostId: String): Flow<List<MessageEntity>>
+
+    @Query("SELECT COUNT(*) > 0 FROM messages WHERE roomId = :roomId AND text = :text")
+    fun hasMessageWithTextFlow(roomId: String, text: String): Flow<Boolean>
+
+    @Query("SELECT * FROM messages WHERE roomId = :roomId AND text LIKE :query AND isTemporary = 0 ORDER BY timestamp DESC")
+    fun searchMessagesForRoom(roomId: String, query: String): Flow<List<MessageEntity>>
+
+    @Query("DELETE FROM messages WHERE roomId = :roomId AND text = :text")
+    fun deleteMessagesByText(roomId: String, text: String): Int
+
+    @Query("SELECT COUNT(*) FROM messages WHERE roomId = :roomId AND timestamp > :timestamp AND isTemporary = 0")
+    fun getMessageIndexByTimestamp(roomId: String, timestamp: Long): Int
 
     @Query("DELETE FROM messages")
     fun deleteAllMessages(): Int
