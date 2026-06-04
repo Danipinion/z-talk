@@ -4,6 +4,7 @@ export interface User {
   password?: string;
   createdAt?: number;
   avatar?: string;
+  mood?: string;
 }
 
 export interface AuthResponse {

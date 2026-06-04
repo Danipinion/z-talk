@@ -71,6 +71,10 @@ export class AuthService {
     await this.userRepository.updateAvatar(userId, avatar);
   }
 
+  async updateMood(userId: string, mood: string | null): Promise<void> {
+    await this.userRepository.updateMood(userId, mood);
+  }
+
   async getProfile(userId: string): Promise<User | null> {
     return this.userRepository.findById(userId);
   }

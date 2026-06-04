@@ -23,13 +23,15 @@ export class FirebaseFriendRepository implements IFriendRepository {
     snapshot.forEach((child) => {
       const data = child.val();
       const senderId = child.key as string;
-      const promise = this.usersRef.child(senderId).child('avatar').once('value').then((avatarSnapshot) => {
+      const promise = this.usersRef.child(senderId).once('value').then((userSnapshot) => {
+        const userData = userSnapshot.exists() ? userSnapshot.val() : {};
         requests.push({
           senderId,
           senderUsername: data.senderUsername,
           status: data.status,
           createdAt: data.createdAt,
-          senderAvatar: avatarSnapshot.exists() ? avatarSnapshot.val() : undefined
+          senderAvatar: userData.avatar,
+          senderMood: userData.mood
         });
       });
       promises.push(promise);
@@ -72,7 +74,8 @@ export class FirebaseFriendRepository implements IFriendRepository {
           friends.push({
             id: friendId,
             username: userData.username,
-            avatar: userData.avatar
+            avatar: userData.avatar,
+            mood: userData.mood
           });
         }
       })
@@ -127,6 +130,7 @@ export class FirebaseFriendRepository implements IFriendRepository {
           id: userId,
           username: user.username,
           avatar: user.avatar,
+          mood: user.mood,
           relation
         });
       }

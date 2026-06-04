@@ -43,11 +43,16 @@ export class AuthController {
   updateAvatar = async (c: Context) => {
     try {
       const user = c.get('user');
-      const { avatar } = await c.req.json();
-      await this.authService.updateAvatar(user.id, avatar);
-      return c.json({ message: 'Avatar updated successfully' });
+      const { avatar, mood } = await c.req.json();
+      if (avatar !== undefined) {
+        await this.authService.updateAvatar(user.id, avatar);
+      }
+      if (mood !== undefined) {
+        await this.authService.updateMood(user.id, mood);
+      }
+      return c.json({ message: 'Profile updated successfully' });
     } catch (error: any) {
-      console.error('Update avatar controller error:', error.message);
+      console.error('Update profile controller error:', error.message);
       return c.json({ error: error.message }, 400);
     }
   };

@@ -4,12 +4,14 @@ export interface FriendRequest {
   status: string;
   createdAt: number;
   senderAvatar?: string;
+  senderMood?: string;
 }
 
 export interface Friend {
   id: string;
   username: string;
   avatar?: string;
+  mood?: string;
 }
 
 export interface IFriendRepository {

@@ -21,6 +21,7 @@ export class FirebaseUserRepository implements IUserRepository {
           password: data.password,
           createdAt: data.createdAt,
           avatar: data.avatar,
+          mood: data.mood,
         }
       };
     });
@@ -54,11 +55,16 @@ export class FirebaseUserRepository implements IUserRepository {
       id,
       username: data.username,
       createdAt: data.createdAt,
-      avatar: data.avatar
+      avatar: data.avatar,
+      mood: data.mood
     };
   }
 
   async updateAvatar(userId: string, avatar: string): Promise<void> {
     await this.usersRef.child(userId).update({ avatar });
+  }
+
+  async updateMood(userId: string, mood: string | null): Promise<void> {
+    await this.usersRef.child(userId).update({ mood: mood || null });
   }
 }
