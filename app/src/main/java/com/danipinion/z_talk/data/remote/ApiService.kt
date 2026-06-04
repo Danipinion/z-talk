@@ -7,6 +7,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Header
 import retrofit2.http.Query
@@ -57,6 +58,17 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Query("q") query: String
     ): Response<List<SearchUserResponse>>
+
+    @GET("api/auth/profile")
+    suspend fun getProfile(
+        @Header("Authorization") token: String
+    ): Response<UserProfileResponse>
+
+    @PUT("api/auth/profile")
+    suspend fun updateAvatar(
+        @Header("Authorization") token: String,
+        @Body payload: UpdateAvatarPayload
+    ): Response<GenericResponse>
 }
 
 data class UsernameCheckResponse(
@@ -85,17 +97,30 @@ data class FriendRequestResponse(
     val senderId: String,
     val senderUsername: String,
     val status: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val senderAvatar: String? = null
 )
 
 data class FriendResponse(
     val id: String,
-    val username: String
+    val username: String,
+    val avatar: String? = null
 )
 
 data class SearchUserResponse(
     val id: String,
     val username: String,
-    val relation: String // "none", "sent", "received", "friend"
+    val relation: String, // "none", "sent", "received", "friend"
+    val avatar: String? = null
+)
+
+data class UserProfileResponse(
+    val id: String,
+    val username: String,
+    val avatar: String? = null
+)
+
+data class UpdateAvatarPayload(
+    val avatar: String
 )
 

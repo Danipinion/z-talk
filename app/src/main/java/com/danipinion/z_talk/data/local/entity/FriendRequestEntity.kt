@@ -8,5 +8,6 @@ data class FriendRequestEntity(
     @PrimaryKey val senderId: String,
     val senderUsername: String,
     val status: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val senderAvatar: String? = null
 )

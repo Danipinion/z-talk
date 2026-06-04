@@ -28,6 +28,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.TextStyle
 import com.danipinion.z_talk.ui.component.PremiumTopToast
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import com.danipinion.z_talk.ui.utils.AvatarHelper
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
 import com.danipinion.z_talk.ui.screen.auth.AuthState
@@ -229,14 +233,16 @@ fun UserSearchItem(
             modifier = Modifier
                 .size(50.dp)
                 .clip(CircleShape)
-                .background(RedPastel),
+                .background(GreyLight),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                user.username.take(1).uppercase(), 
-                fontWeight = FontWeight.Bold, 
-                color = RedPrimary,
-                fontSize = 18.sp
+            val context = LocalContext.current
+            val avatarResId = AvatarHelper.getAvatarResourceId(context, user.avatar)
+            Image(
+                painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                contentDescription = "Avatar",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
         }
         

@@ -10,6 +10,7 @@ class SessionManager(context: Context) {
         private const val KEY_TOKEN = "jwt_token"
         private const val KEY_USERNAME = "username"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_AVATAR = "avatar"
     }
 
     fun saveSession(token: String, username: String, userId: String) {
@@ -21,9 +22,14 @@ class SessionManager(context: Context) {
         }
     }
 
+    fun saveAvatar(avatar: String?) {
+        prefs.edit().putString(KEY_AVATAR, avatar).apply()
+    }
+
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
     fun getUsername(): String? = prefs.getString(KEY_USERNAME, null)
     fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
+    fun getAvatar(): String? = prefs.getString(KEY_AVATAR, null)
 
     fun isLoggedIn(): Boolean = getToken() != null
 

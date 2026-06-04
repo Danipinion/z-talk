@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import com.danipinion.z_talk.ui.utils.AvatarHelper
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.data.local.AppDatabase
 import com.danipinion.z_talk.data.local.entity.MessageEntity
@@ -86,6 +89,9 @@ fun ChatDetailScreen(
 
     val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
     val friendsList by db.friendDao().getAllFriends().collectAsState(initial = emptyList())
+    val partnerAvatar = remember(friendsList, friendId) {
+        friendsList.find { it.id == friendId }?.avatar
+    }
 
     val allMessages = remember { mutableStateListOf<Message>() }
     var textState by remember { mutableStateOf("") }
@@ -565,6 +571,7 @@ fun ChatDetailScreen(
                             ChatBubble(
                                 message = message, 
                                 showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
+                                avatar = partnerAvatar,
                                 isHighlighted = message.id == highlightedMessageId,
                                 onGhostClick = { 
                                     if (message.isGhost && !message.isUsed) {
@@ -1287,6 +1294,7 @@ fun StatusSeparator(text: String) {
 fun ChatBubble(
     message: Message, 
     showAvatar: Boolean,
+    avatar: String?,
     isHighlighted: Boolean = false,
     onGhostClick: () -> Unit = {}
 ) {
@@ -1294,6 +1302,8 @@ fun ChatBubble(
         targetValue = if (isHighlighted) RedPrimary.copy(alpha = 0.15f) else Color.Transparent,
         animationSpec = tween(durationMillis = 500)
     )
+
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -1312,14 +1322,15 @@ fun ChatBubble(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(GreyDivider),
+                            .background(GreyLight),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "A",
-                            color = Black, 
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                        val avatarResId = AvatarHelper.getAvatarResourceId(context, avatar)
+                        Image(
+                            painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                            contentDescription = "Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
                     }
                 } else {

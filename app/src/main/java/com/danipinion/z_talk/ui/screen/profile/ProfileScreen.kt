@@ -1,10 +1,6 @@
 package com.danipinion.z_talk.ui.screen.profile
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -30,7 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.Image
+import com.danipinion.z_talk.data.local.SessionManager
+import com.danipinion.z_talk.ui.utils.AvatarHelper
 import com.danipinion.z_talk.ui.theme.*
 
 @Composable
@@ -40,18 +39,16 @@ fun ProfileScreen(
     onLogout: () -> Unit = {}
 ) {
     BackHandler { onBack() }
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+    val username = remember { sessionManager.getUsername() ?: "Dani Pinion" }
+    val avatarName = sessionManager.getAvatar()
+
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
 
     var showLogoutDialog by remember { mutableStateOf(false) }
-
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        imageUri = uri
-    }
 
     Column(
         modifier = Modifier
@@ -144,25 +141,17 @@ fun ProfileScreen(
                         .border(width = 4.dp, brush = gradientBrush, shape = CircleShape)
                         .padding(6.dp)
                         .clip(CircleShape)
-                        .background(GreyLight),
+                        .background(GreyLight)
+                        .clickable { onEditProfile() },
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageUri != null) {
-                        AsyncImage(
-                            model = imageUri,
-                            contentDescription = "Profile Photo",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        // Placeholder Image or Initial
-                        Text(
-                            text = "D",
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Black
-                        )
-                    }
+                    val avatarResId = AvatarHelper.getAvatarResourceId(context, avatarName)
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                        contentDescription = "Profile Photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 }
 
                 // Camera Shortcut (Floating above border)
@@ -176,7 +165,7 @@ fun ProfileScreen(
                         .clip(CircleShape)
                         .background(White)
                         .border(1.dp, GreyDivider, CircleShape)
-                        .clickable { photoPickerLauncher.launch("image/*") },
+                        .clickable { onEditProfile() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -193,7 +182,7 @@ fun ProfileScreen(
 
         // Name & Bio
         Text(
-            text = "Dani Pinion",
+            text = username,
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = Black,
