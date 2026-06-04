@@ -36,7 +36,7 @@ class FriendViewModel(
         // Collect cached friends from Room DB and emit immediately
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             database.friendDao().getAllFriends().collect { localFriends ->
-                val mapped = localFriends.map { FriendResponse(it.id, it.username) }
+                val mapped = localFriends.map { FriendResponse(it.id, it.username, it.avatar) }
                 // Only push if we haven't successfully fetched fresh remote data
                 if (_friendsState.value !is AuthState.Success) {
                     _friendsState.value = AuthState.Success(mapped)
@@ -46,7 +46,7 @@ class FriendViewModel(
         // Collect cached friend requests from Room DB and emit immediately
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             database.friendRequestDao().getAllFriendRequests().collect { localRequests ->
-                val mapped = localRequests.map { FriendRequestResponse(it.senderId, it.senderUsername, it.status, it.createdAt) }
+                val mapped = localRequests.map { FriendRequestResponse(it.senderId, it.senderUsername, it.status, it.createdAt, it.senderAvatar) }
                 if (_requestsState.value !is AuthState.Success) {
                     _requestsState.value = AuthState.Success(mapped)
                 }
@@ -89,7 +89,7 @@ class FriendViewModel(
                     viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                         database.friendRequestDao().deleteAllFriendRequests()
                         database.friendRequestDao().insertFriendRequests(remoteRequests.map {
-                            FriendRequestEntity(it.senderId, it.senderUsername, it.status, it.createdAt)
+                            FriendRequestEntity(it.senderId, it.senderUsername, it.status, it.createdAt, it.senderAvatar)
                         })
                     }
                 } else {
@@ -120,7 +120,7 @@ class FriendViewModel(
                     viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                         database.friendDao().deleteAllFriends()
                         database.friendDao().insertFriends(remoteFriends.map {
-                            FriendEntity(it.id, it.username)
+                            FriendEntity(it.id, it.username, it.avatar)
                         })
                     }
                 } else {

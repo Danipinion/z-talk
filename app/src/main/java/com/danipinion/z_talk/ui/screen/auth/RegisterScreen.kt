@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun RegisterScreen(
     viewModel: AuthViewModel,
-    onRegisterSuccess: (token: String, username: String, userId: String) -> Unit,
+    onRegisterSuccess: (token: String, username: String, userId: String, avatar: String?) -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
     BackHandler { 
@@ -62,7 +62,8 @@ fun RegisterScreen(
             val token = response.token ?: ""
             val uName = response.user?.username ?: ""
             val uId = response.user?.id ?: ""
-            onRegisterSuccess(token, uName, uId)
+            val avatar = response.user?.avatar
+            onRegisterSuccess(token, uName, uId, avatar)
             viewModel.resetStates()
         }
     }

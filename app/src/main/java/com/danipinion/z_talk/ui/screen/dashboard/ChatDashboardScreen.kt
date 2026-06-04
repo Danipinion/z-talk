@@ -32,6 +32,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import com.danipinion.z_talk.ui.utils.AvatarHelper
+import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.ui.screen.friend.FriendViewModel
 import com.danipinion.z_talk.ui.screen.auth.AuthState
@@ -203,6 +208,7 @@ fun ChatDashboardScreen(
                         name = friend.username,
                         lastMessage = "Tap to open chat room",
                         time = "Now",
+                        avatarUrl = friend.avatar ?: "",
                         isUnread = false,
                         isRequest = false
                     )
@@ -214,6 +220,7 @@ fun ChatDashboardScreen(
                         name = request.senderUsername,
                         lastMessage = "Sent you a friend request",
                         time = "Pending",
+                        avatarUrl = request.senderAvatar ?: "",
                         isUnread = true,
                         isRequest = true
                     )
@@ -330,6 +337,10 @@ fun ChatTopBar(
     onProfileClick: () -> Unit,
     onSearchToggle: () -> Unit
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
+    val avatar = sessionManager.getAvatar()
+
     CenterAlignedTopAppBar(
         navigationIcon = {
             IconButton(onClick = onSearchToggle) {
@@ -372,15 +383,16 @@ fun ChatTopBar(
                     .padding(end = 12.dp)
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(RedPastel)
+                    .background(GreyLight)
                     .clickable { onProfileClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "D",
-                    color = RedPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
+                val avatarResId = AvatarHelper.getAvatarResourceId(context, avatar)
+                Image(
+                    painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                    contentDescription = "My Profile Photo",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
         },
@@ -575,14 +587,16 @@ fun ChatListItem(
             modifier = Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(RedPastel),
+                .background(GreyLight),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = chat.name.take(1),
-                color = RedPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp
+            val context = LocalContext.current
+            val avatarResId = AvatarHelper.getAvatarResourceId(context, chat.avatarUrl)
+            Image(
+                painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                contentDescription = "Avatar",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
             )
         }
         

@@ -6,5 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "friends")
 data class FriendEntity(
     @PrimaryKey val id: String,
-    val username: String
+    val username: String,
+    val avatar: String? = null
 )
