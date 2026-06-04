@@ -15,5 +15,6 @@ data class MessageEntity(
     val isUsed: Boolean = false,
     val isTemporary: Boolean = false,
     val ghostMessageId: String? = null,
-    val isUnread: Boolean = false
+    val isUnread: Boolean = false,
+    val isPending: Boolean = false
 )

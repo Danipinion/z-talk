@@ -36,6 +36,12 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE isUnread = 1 AND isSentByMe = 0")
     fun getAllUnreadMessages(): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE isPending = 1 ORDER BY timestamp ASC")
+    fun getPendingMessages(): List<MessageEntity>
+
+    @Query("DELETE FROM messages WHERE messageId = (SELECT messageId FROM messages WHERE roomId = :roomId AND text = :text AND isPending = 1 LIMIT 1)")
+    fun deleteOnePendingMessage(roomId: String, text: String): Int
+
     @Query("DELETE FROM messages")
     fun deleteAllMessages(): Int
 }

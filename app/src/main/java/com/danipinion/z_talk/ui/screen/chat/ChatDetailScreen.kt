@@ -71,7 +71,8 @@ data class Message(
     val isUsed: Boolean = false,
     val isStatus: Boolean = false,
     val ghostMessageId: String? = null,
-    val realMessageId: String = ""
+    val realMessageId: String = "",
+    val isPending: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -146,7 +147,8 @@ fun ChatDetailScreen(
                 isTemporary = entity.isTemporary,
                 isStatus = entity.text.startsWith("You blocked") || entity.text.startsWith("You unblocked") || entity.text.startsWith("You are blocked"),
                 ghostMessageId = entity.ghostMessageId,
-                realMessageId = entity.messageId
+                realMessageId = entity.messageId,
+                isPending = entity.isPending
             )
         })
         isBlocked = dbMessages.any { it.text == "You blocked this friend" }
@@ -1396,6 +1398,17 @@ fun ChatBubble(
                 message.isGhost -> if (message.isFromMe) Color(0xFF311B92) else Color(0xFF004D40)
                 message.isTemporary -> if (message.isFromMe) Color(0xFFFFF1F1) else Color(0xFFF3E5F5)
                 else -> if (message.isFromMe) RedPrimary else Color(0xFFF7F7F7)
+            }
+
+            if (message.isFromMe && message.isPending) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = "Pending",
+                    tint = GreyText,
+                    modifier = Modifier
+                        .padding(end = 6.dp, bottom = 4.dp)
+                        .size(14.dp)
+                )
             }
 
             Surface(
