@@ -63,4 +63,15 @@ export class AuthService {
     const exists = await this.userRepository.usernameExists(username);
     return !exists; // returns true if username is available (does not exist)
   }
+
+  async updateAvatar(userId: string, avatar: string): Promise<void> {
+    if (!avatar) {
+      throw new Error('Avatar is required');
+    }
+    await this.userRepository.updateAvatar(userId, avatar);
+  }
+
+  async getProfile(userId: string): Promise<User | null> {
+    return this.userRepository.findById(userId);
+  }
 }

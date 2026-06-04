@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { db } from '../config/firebase.js';
 
 interface ClientMessage {
-  type: 'register' | 'message';
+  type: 'register' | 'message' | 'clear_chat' | 'remove_friend' | 'block_user';
   userId?: string;
   roomId?: string;
   senderId?: string;
@@ -92,6 +92,71 @@ export function initWebSocketServer(server: any) {
           const receiverWs = clients.get(receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
             receiverWs.send(responsePayload);
+          }
+        } else if (payload.type === 'clear_chat' && payload.roomId && payload.senderId && payload.receiverId) {
+          const { roomId, senderId, receiverId } = payload;
+          
+          await db.ref(`messages/${roomId}`).remove();
+          console.log(`Cleared Firebase messages for room ${roomId}`);
+
+          const broadcastPayload = JSON.stringify({
+            type: 'clear_chat',
+            roomId
+          });
+
+          const senderWs = clients.get(senderId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(broadcastPayload);
+          }
+
+          const receiverWs = clients.get(receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(broadcastPayload);
+          }
+        } else if (payload.type === 'remove_friend' && payload.senderId && payload.receiverId) {
+          const { senderId, receiverId } = payload;
+
+          await Promise.all([
+            db.ref(`friendships/${senderId}/${receiverId}`).remove(),
+            db.ref(`friendships/${receiverId}/${senderId}`).remove()
+          ]);
+          console.log(`Removed friendship in Firebase between ${senderId} and ${receiverId}`);
+
+          const broadcastPayload = JSON.stringify({
+            type: 'remove_friend',
+            senderId,
+            receiverId
+          });
+
+          const senderWs = clients.get(senderId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(broadcastPayload);
+          }
+
+          const receiverWs = clients.get(receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(broadcastPayload);
+          }
+        } else if (payload.type === 'block_user' && payload.senderId && payload.receiverId) {
+          const { senderId, receiverId } = payload;
+
+          await db.ref(`blocks/${senderId}/${receiverId}`).set(true);
+          console.log(`Blocked user ${receiverId} by ${senderId} in Firebase`);
+
+          const broadcastPayload = JSON.stringify({
+            type: 'block_user',
+            senderId,
+            receiverId
+          });
+
+          const senderWs = clients.get(senderId);
+          if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+            senderWs.send(broadcastPayload);
+          }
+
+          const receiverWs = clients.get(receiverId);
+          if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+            receiverWs.send(broadcastPayload);
           }
         }
       } catch (err) {

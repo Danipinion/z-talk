@@ -39,4 +39,27 @@ export class AuthController {
       return c.json({ error: error.message }, status);
     }
   };
+
+  updateAvatar = async (c: Context) => {
+    try {
+      const user = c.get('user');
+      const { avatar } = await c.req.json();
+      await this.authService.updateAvatar(user.id, avatar);
+      return c.json({ message: 'Avatar updated successfully' });
+    } catch (error: any) {
+      console.error('Update avatar controller error:', error.message);
+      return c.json({ error: error.message }, 400);
+    }
+  };
+
+  getProfile = async (c: Context) => {
+    try {
+      const user = c.get('user');
+      const profile = await this.authService.getProfile(user.id);
+      return c.json(profile);
+    } catch (error: any) {
+      console.error('Get profile controller error:', error.message);
+      return c.json({ error: error.message }, 400);
+    }
+  };
 }

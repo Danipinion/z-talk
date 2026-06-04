@@ -20,6 +20,7 @@ export class FirebaseUserRepository implements IUserRepository {
           username: data.username,
           password: data.password,
           createdAt: data.createdAt,
+          avatar: data.avatar,
         }
       };
     });
@@ -43,5 +44,21 @@ export class FirebaseUserRepository implements IUserRepository {
   async usernameExists(username: string): Promise<boolean> {
     const snapshot = await this.usersRef.orderByChild('username').equalTo(username).once('value');
     return snapshot.exists();
+  }
+
+  async findById(id: string): Promise<User | null> {
+    const snapshot = await this.usersRef.child(id).once('value');
+    if (!snapshot.exists()) return null;
+    const data = snapshot.val();
+    return {
+      id,
+      username: data.username,
+      createdAt: data.createdAt,
+      avatar: data.avatar
+    };
+  }
+
+  async updateAvatar(userId: string, avatar: string): Promise<void> {
+    await this.usersRef.child(userId).update({ avatar });
   }
 }
