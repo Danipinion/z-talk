@@ -15,7 +15,7 @@ import com.danipinion.z_talk.data.local.entity.MessageEntity
 import com.danipinion.z_talk.data.local.entity.FriendEntity
 import com.danipinion.z_talk.data.local.entity.FriendRequestEntity
 
-@Database(entities = [UserEntity::class, ChatRoomEntity::class, MessageEntity::class, FriendEntity::class, FriendRequestEntity::class], version = 5, exportSchema = false)
+@Database(entities = [UserEntity::class, ChatRoomEntity::class, MessageEntity::class, FriendEntity::class, FriendRequestEntity::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun chatRoomDao(): ChatRoomDao

@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Dashboard -> ChatDashboardScreen(
                             viewModel = friendViewModel,
                             token = sessionManager.getToken() ?: "",
+                            userId = sessionManager.getUserId() ?: "",
                             selectedTab = dashboardTab,
                             onTabSelected = { dashboardTab = it },
                             onNavigateToSearch = { currentScreen = Screen.SearchUser },

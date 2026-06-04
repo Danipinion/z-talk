@@ -43,12 +43,14 @@ import com.danipinion.z_talk.ui.screen.auth.AuthState
 import com.danipinion.z_talk.ui.component.PremiumTopToast
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.danipinion.z_talk.data.local.AppDatabase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDashboardScreen(
     viewModel: FriendViewModel? = null,
     token: String = "",
+    userId: String = "",
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     onNavigateToSearch: () -> Unit = {}, 
@@ -56,6 +58,11 @@ fun ChatDashboardScreen(
     onNavigateToChat: (String, String) -> Unit = { _, _ -> },
     onNavigateToProfile: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val db = remember { AppDatabase.getDatabase(context) }
+    val chatRooms by db.chatRoomDao().getAllChatRooms().collectAsState(initial = emptyList())
+    val unreadMessages by db.messageDao().getAllUnreadMessages().collectAsState(initial = emptyList())
+
     // Handle system back button to return to "All" tab first
     BackHandler(enabled = selectedTab != 0) {
         onTabSelected(0)
@@ -201,20 +208,33 @@ fun ChatDashboardScreen(
             val friends = (friendsState as? AuthState.Success)?.data ?: emptyList()
             val requests = (requestsState as? AuthState.Success)?.data ?: emptyList()
 
+            val mappedChats = friends.map { friend ->
+                val rId = if (userId < friend.id) "${userId}_${friend.id}" else "${friend.id}_${userId}"
+                val room = chatRooms.find { it.roomId == rId }
+                val roomUnreadCount = unreadMessages.count { it.roomId == rId }
+                ChatItemData(
+                    id = friend.id,
+                    name = friend.username,
+                    lastMessage = room?.lastMessage ?: "Tap to open chat room",
+                    time = if (room != null) {
+                        try {
+                            val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                            sdf.format(java.util.Date(room.lastTimestamp))
+                        } catch (e: Exception) {
+                            ""
+                        }
+                    } else "",
+                    avatarUrl = friend.avatar ?: "",
+                    isUnread = roomUnreadCount > 0,
+                    unreadCount = roomUnreadCount,
+                    isRequest = false,
+                    mood = friend.mood
+                )
+            }
+
             val currentChats = when (selectedTab) {
-                0 -> friends.map { friend ->
-                    ChatItemData(
-                        id = friend.id,
-                        name = friend.username,
-                        lastMessage = "Tap to open chat room",
-                        time = "Now",
-                        avatarUrl = friend.avatar ?: "",
-                        isUnread = false,
-                        isRequest = false,
-                        mood = friend.mood
-                    )
-                }
-                1 -> emptyList() // Unread chats placeholder
+                0 -> mappedChats
+                1 -> mappedChats.filter { it.isUnread }
                 2 -> requests.map { request ->
                     ChatItemData(
                         id = request.senderId,
@@ -223,6 +243,7 @@ fun ChatDashboardScreen(
                         time = "Pending",
                         avatarUrl = request.senderAvatar ?: "",
                         isUnread = true,
+                        unreadCount = 1,
                         isRequest = true,
                         mood = request.senderMood
                     )
@@ -626,13 +647,33 @@ fun ChatListItem(
                     }
                 }
                 
-                if (chat.isUnread && selectedTab == 1) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(RedPrimary)
-                    )
+                if (chat.isUnread) {
+                    val count = chat.unreadCount
+                    if (count > 0) {
+                        Box(
+                            modifier = Modifier
+                                .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                                .clip(CircleShape)
+                                .background(RedPrimary)
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = count.toString(),
+                                color = White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(RedPrimary)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
@@ -825,6 +866,7 @@ data class ChatItemData(
     val time: String,
     val avatarUrl: String = "",
     val isUnread: Boolean = false,
+    val unreadCount: Int = 0,
     val isRequest: Boolean = false,
     val mood: String? = null
 )

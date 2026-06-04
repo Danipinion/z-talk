@@ -18,7 +18,8 @@ class WebSocketManager(private val context: Context, private val userId: String)
 
     companion object {
         private const val TAG = "WebSocketManager"
-        private const val WS_URL = "ws://127.0.0.1:3000"
+        // private const val WS_URL = "ws://127.0.0.1:3000"
+        private const val WS_URL = "wss://ztalkapi.danipinion.my.id"
     }
 
     fun connect() {
@@ -65,7 +66,8 @@ class WebSocketManager(private val context: Context, private val userId: String)
                             isGhost = isGhost,
                             isUsed = isUsed,
                             isTemporary = isTemporary,
-                            ghostMessageId = if (ghostMessageId == "null" || ghostMessageId.isNullOrEmpty()) null else ghostMessageId
+                            ghostMessageId = if (ghostMessageId == "null" || ghostMessageId.isNullOrEmpty()) null else ghostMessageId,
+                            isUnread = !isSentByMe
                         )
 
                         Thread {

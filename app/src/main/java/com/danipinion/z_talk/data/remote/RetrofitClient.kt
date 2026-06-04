@@ -6,7 +6,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    private const val BASE_URL = "http://localhost:3000" // Local backend URL
+    // private const val BASE_URL = "http://localhost:3000"
+    private const val BASE_URL = "https://ztalkapi.danipinion.my.id"
 
     private val logging = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

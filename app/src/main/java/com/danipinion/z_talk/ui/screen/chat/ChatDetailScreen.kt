@@ -90,6 +90,14 @@ fun ChatDetailScreen(
     }
 
     val dbMessages by db.messageDao().getMessagesForRoom(roomId).collectAsState(initial = emptyList())
+
+    LaunchedEffect(dbMessages, roomId) {
+        if (dbMessages.any { it.isUnread && !it.isSentByMe }) {
+            withContext(Dispatchers.IO) {
+                db.messageDao().markMessagesAsRead(roomId)
+            }
+        }
+    }
     val friendsList by db.friendDao().getAllFriends().collectAsState(initial = emptyList())
     val partnerAvatar = remember(friendsList, friendId) {
         friendsList.find { it.id == friendId }?.avatar
@@ -193,15 +201,31 @@ fun ChatDetailScreen(
         if (!isTemporaryMode) {
             withContext(Dispatchers.IO) {
                 db.messageDao().deleteTemporaryMessages(roomId)
+                if (activeGhostId.isNotEmpty()) {
+                    db.messageDao().markGhostAsUsed(activeGhostId)
+                }
+            }
+            if (activeGhostId.isNotEmpty()) {
+                webSocketManager?.sendUseGhost(roomId, friendId, activeGhostId)
+                activeGhostId = ""
             }
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            Thread {
-                db.messageDao().deleteTemporaryMessages(roomId)
-            }.start()
+            val ghostIdToUse = activeGhostId
+            if (ghostIdToUse.isNotEmpty()) {
+                Thread {
+                    db.messageDao().deleteTemporaryMessages(roomId)
+                    db.messageDao().markGhostAsUsed(ghostIdToUse)
+                    webSocketManager?.sendUseGhost(roomId, friendId, ghostIdToUse)
+                }.start()
+            } else {
+                Thread {
+                    db.messageDao().deleteTemporaryMessages(roomId)
+                }.start()
+            }
         }
     }
     
@@ -618,9 +642,6 @@ fun ChatDetailScreen(
                                 onGhostClick = { 
                                     if (message.isGhost) {
                                         activeGhostId = message.realMessageId
-                                        if (!message.isUsed) {
-                                            webSocketManager?.sendUseGhost(roomId, friendId, message.realMessageId)
-                                        }
                                         isTemporaryMode = true 
                                     }
                                 }
