@@ -133,6 +133,40 @@ class WebSocketManager(private val context: Context, private val userId: String)
                                 db.chatRoomDao().insertChatRoom(chatRoom)
                             }
                         }.start()
+                    } else if (json.getString("type") == "delete_message") {
+                        val roomId = json.getString("roomId")
+                        val messageIdsArray = json.getJSONArray("messageIds")
+                        val list = mutableListOf<String>()
+                        for (i in 0 until messageIdsArray.length()) {
+                            list.add(messageIdsArray.getString(i))
+                        }
+                        Thread {
+                            db.messageDao().deleteMessagesByIds(list)
+
+                            val parts = roomId.split("_")
+                            val partnerUid = if (parts.size == 2) {
+                                if (parts[0] == userId) parts[1] else parts[0]
+                            } else ""
+
+                            if (partnerUid.isNotEmpty()) {
+                                val newestMsg = db.messageDao().getNewestMessageForRoom(roomId)
+                                val cachedFriend = db.friendDao().getFriendById(partnerUid)
+                                val partnerUsername = cachedFriend?.username ?: "Chat Partner"
+                                val partnerAvatar = cachedFriend?.avatar
+                                val partnerMood = cachedFriend?.mood
+
+                                val chatRoom = ChatRoomEntity(
+                                    roomId = roomId,
+                                    partnerUid = partnerUid,
+                                    partnerUsername = partnerUsername,
+                                    lastMessage = newestMsg?.text ?: "Tap to open chat room",
+                                    lastTimestamp = newestMsg?.timestamp ?: 0L,
+                                    partnerAvatar = partnerAvatar,
+                                    partnerMood = partnerMood
+                                )
+                                db.chatRoomDao().insertChatRoom(chatRoom)
+                            }
+                        }.start()
                     } else if (json.getString("type") == "use_ghost") {
                         val messageId = json.getString("messageId")
                         Thread {
@@ -253,6 +287,21 @@ class WebSocketManager(private val context: Context, private val userId: String)
                 db.chatRoomDao().insertChatRoom(chatRoom)
             }.start()
         }
+    }
+
+    fun sendDeleteMessages(roomId: String, receiverId: String, messageIds: List<String>) {
+        val payload = JSONObject().apply {
+            put("type", "delete_message")
+            put("roomId", roomId)
+            put("senderId", userId)
+            put("receiverId", receiverId)
+            val jsonArray = org.json.JSONArray()
+            for (id in messageIds) {
+                jsonArray.put(id)
+            }
+            put("messageIds", jsonArray)
+        }
+        webSocket?.send(payload.toString())
     }
 
     fun sendUseGhost(roomId: String, receiverId: String, messageId: String) {
