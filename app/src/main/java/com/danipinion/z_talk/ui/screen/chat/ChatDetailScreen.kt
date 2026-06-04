@@ -51,6 +51,7 @@ import com.danipinion.z_talk.ui.utils.AvatarHelper
 import com.danipinion.z_talk.ui.theme.*
 import com.danipinion.z_talk.data.local.AppDatabase
 import com.danipinion.z_talk.data.local.entity.MessageEntity
+import com.danipinion.z_talk.data.local.entity.ChatRoomEntity
 import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.data.remote.WebSocketManager
 import com.danipinion.z_talk.data.remote.RetrofitClient
@@ -108,6 +109,9 @@ fun ChatDetailScreen(
     }
 
     val allMessages = remember { mutableStateListOf<Message>() }
+    val selectedMessageIds = remember { mutableStateListOf<String>() }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var isDeleteConfirmDialogVisible by remember { mutableStateOf(false) }
     var textState by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     
@@ -246,7 +250,9 @@ fun ChatDetailScreen(
 
     // Handle system back button to exit Ghost Mode first, then go back to dashboard
     BackHandler {
-        if (isTemporaryMode) {
+        if (selectedMessageIds.isNotEmpty()) {
+            selectedMessageIds.clear()
+        } else if (isTemporaryMode) {
             isTemporaryMode = false
         } else {
             onBack()
@@ -394,7 +400,9 @@ fun ChatDetailScreen(
                             .clip(CircleShape)
                             .background(Color(0xFFF7F7F7))
                             .clickable { 
-                                if (isTemporaryMode) {
+                                if (selectedMessageIds.isNotEmpty()) {
+                                    selectedMessageIds.clear()
+                                } else if (isTemporaryMode) {
                                     isTemporaryMode = false
                                 } else {
                                     onBack()
@@ -411,6 +419,22 @@ fun ChatDetailScreen(
                     }
                 },
                 actions = {
+                    if (selectedMessageIds.isNotEmpty()) {
+                        IconButton(
+                            onClick = { 
+                                showDeleteConfirmDialog = true
+                                isDeleteConfirmDialogVisible = true
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Selected",
+                                tint = RedPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                     if (!isTemporaryMode) {
                         IconButton(
                             onClick = { 
@@ -641,10 +665,24 @@ fun ChatDetailScreen(
                                 showAvatar = isLastInGroup && !message.isFromMe && !isTemporaryMode,
                                 avatar = partnerAvatar,
                                 isHighlighted = message.id == highlightedMessageId,
-                                onGhostClick = { 
-                                    if (message.isGhost) {
+                                isSelected = selectedMessageIds.contains(message.realMessageId),
+                                onClick = {
+                                    if (selectedMessageIds.isNotEmpty()) {
+                                        if (selectedMessageIds.contains(message.realMessageId)) {
+                                            selectedMessageIds.remove(message.realMessageId)
+                                        } else {
+                                            selectedMessageIds.add(message.realMessageId)
+                                        }
+                                    } else if (message.isGhost && !message.isUsed) {
                                         activeGhostId = message.realMessageId
                                         isTemporaryMode = true 
+                                    }
+                                },
+                                onLongClick = {
+                                    if (selectedMessageIds.contains(message.realMessageId)) {
+                                        selectedMessageIds.remove(message.realMessageId)
+                                    } else {
+                                        selectedMessageIds.add(message.realMessageId)
                                     }
                                 }
                             )
@@ -775,6 +813,195 @@ fun ChatDetailScreen(
                             if (!isDialogVisible) {
                                 delay(300)
                                 showRemoveFriendDialog = false
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Delete Messages Confirmation Dialog
+        if (showDeleteConfirmDialog) {
+            val selectedMessages = remember(selectedMessageIds.toList(), allMessages.toList()) {
+                allMessages.filter { selectedMessageIds.contains(it.realMessageId) }
+            }
+            val allSentByMe = remember(selectedMessages) {
+                selectedMessages.isNotEmpty() && selectedMessages.all { it.isFromMe }
+            }
+
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = { isDeleteConfirmDialogVisible = false },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                            .clickable(enabled = false) {}
+                    )
+
+                    AnimatedVisibility(
+                        visible = isDeleteConfirmDialogVisible,
+                        enter = fadeIn() + scaleIn(initialScale = 0.9f),
+                        exit = fadeOut() + scaleOut(targetScale = 0.9f)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .padding(horizontal = 32.dp)
+                                .widthIn(max = 320.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = White,
+                            tonalElevation = 2.dp
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(64.dp),
+                                    shape = CircleShape,
+                                    color = RedPrimary.copy(alpha = 0.1f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = RedPrimary,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(20.dp))
+
+                                Text(
+                                    text = "Hapus Pesan?",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Black
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = if (allSentByMe) {
+                                        "Apakah Anda ingin menghapus pesan terpilih ini dari riwayat Anda atau untuk semua orang?"
+                                    } else {
+                                        "Apakah Anda ingin menghapus pesan terpilih ini dari riwayat Anda? Tindakan ini hanya bersifat sepihak."
+                                    },
+                                    fontSize = 14.sp,
+                                    color = GreyText,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 20.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(32.dp))
+
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    if (allSentByMe) {
+                                        Button(
+                                            onClick = {
+                                                isDeleteConfirmDialogVisible = false
+                                                showDeleteConfirmDialog = false
+                                                val ids = selectedMessageIds.toList()
+                                                webSocketManager?.sendDeleteMessages(roomId, friendId, ids)
+                                                Thread {
+                                                    db.messageDao().deleteMessagesByIds(ids)
+                                                    val newestMsg = db.messageDao().getNewestMessageForRoom(roomId)
+                                                    val cachedFriend = db.friendDao().getFriendById(friendId)
+                                                    val partnerUsername = cachedFriend?.username ?: "Chat Partner"
+                                                    val partnerAvatar = cachedFriend?.avatar
+                                                    val partnerMood = cachedFriend?.mood
+
+                                                    val chatRoom = ChatRoomEntity(
+                                                        roomId = roomId,
+                                                        partnerUid = friendId,
+                                                        partnerUsername = partnerUsername,
+                                                        lastMessage = newestMsg?.text ?: "Tap to open chat room",
+                                                        lastTimestamp = newestMsg?.timestamp ?: 0L,
+                                                        partnerAvatar = partnerAvatar,
+                                                        partnerMood = partnerMood
+                                                    )
+                                                    db.chatRoomDao().insertChatRoom(chatRoom)
+                                                }.start()
+                                                selectedMessageIds.clear()
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(16.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = RedPrimary,
+                                                contentColor = White
+                                            ),
+                                            contentPadding = PaddingValues(vertical = 12.dp)
+                                        ) {
+                                            Text("Hapus untuk Semua Orang", fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            isDeleteConfirmDialogVisible = false
+                                            showDeleteConfirmDialog = false
+                                            val ids = selectedMessageIds.toList()
+                                            Thread {
+                                                db.messageDao().deleteMessagesByIds(ids)
+                                                val newestMsg = db.messageDao().getNewestMessageForRoom(roomId)
+                                                val cachedFriend = db.friendDao().getFriendById(friendId)
+                                                val partnerUsername = cachedFriend?.username ?: "Chat Partner"
+                                                val partnerAvatar = cachedFriend?.avatar
+                                                val partnerMood = cachedFriend?.mood
+
+                                                val chatRoom = ChatRoomEntity(
+                                                    roomId = roomId,
+                                                    partnerUid = friendId,
+                                                    partnerUsername = partnerUsername,
+                                                    lastMessage = newestMsg?.text ?: "Tap to open chat room",
+                                                    lastTimestamp = newestMsg?.timestamp ?: 0L,
+                                                    partnerAvatar = partnerAvatar,
+                                                    partnerMood = partnerMood
+                                                )
+                                                db.chatRoomDao().insertChatRoom(chatRoom)
+                                            }.start()
+                                            selectedMessageIds.clear()
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (allSentByMe) Color(0xFFFEEBEE) else RedPrimary,
+                                            contentColor = if (allSentByMe) RedPrimary else White
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Hapus untuk Saya", fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Button(
+                                        onClick = { isDeleteConfirmDialogVisible = false },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFFF5F5F5),
+                                            contentColor = GreyText
+                                        ),
+                                        contentPadding = PaddingValues(vertical = 12.dp)
+                                    ) {
+                                        Text("Batal", fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+
+                        LaunchedEffect(isDeleteConfirmDialogVisible) {
+                            if (!isDeleteConfirmDialogVisible) {
+                                delay(300)
+                                showDeleteConfirmDialog = false
                             }
                         }
                     }
@@ -1345,26 +1572,35 @@ fun StatusSeparator(text: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatBubble(
     message: Message, 
     showAvatar: Boolean,
     avatar: String?,
     isHighlighted: Boolean = false,
-    onGhostClick: () -> Unit = {}
+    isSelected: Boolean = false,
+    onClick: () -> Unit = {},
+    onLongClick: () -> Unit = {}
 ) {
     val highlightColor by animateColorAsState(
         targetValue = if (isHighlighted) RedPrimary.copy(alpha = 0.15f) else Color.Transparent,
         animationSpec = tween(durationMillis = 500)
     )
+    val selectionColor = if (isSelected) RedPrimary.copy(alpha = 0.12f) else Color.Transparent
 
     val context = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(selectionColor)
             .background(highlightColor)
-            .padding(vertical = if (isHighlighted) 8.dp else 0.dp),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .padding(horizontal = 16.dp, vertical = if (isHighlighted) 8.dp else 4.dp),
         horizontalAlignment = if (message.isFromMe) Alignment.End else Alignment.Start
     ) {
         Row(
@@ -1420,9 +1656,7 @@ fun ChatBubble(
                     bottomEnd = if (message.isFromMe) 4.dp else 20.dp
                 ),
                 border = if (message.isTemporary) BorderStroke(1.5.dp, if (message.isFromMe) RedPrimary else Color(0xFF9C27B0)) else null,
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .clickable(enabled = message.isGhost && !message.isUsed) { onGhostClick() }
+                modifier = Modifier.widthIn(max = 280.dp)
             ) {
                 if (message.isGhost) {
                     Row(

@@ -42,6 +42,12 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE messageId = (SELECT messageId FROM messages WHERE roomId = :roomId AND text = :text AND isPending = 1 LIMIT 1)")
     fun deleteOnePendingMessage(roomId: String, text: String): Int
 
+    @Query("DELETE FROM messages WHERE messageId IN (:messageIds)")
+    fun deleteMessagesByIds(messageIds: List<String>): Int
+
+    @Query("SELECT * FROM messages WHERE roomId = :roomId ORDER BY timestamp DESC LIMIT 1")
+    fun getNewestMessageForRoom(roomId: String): MessageEntity?
+
     @Query("DELETE FROM messages")
     fun deleteAllMessages(): Int
 }
