@@ -10,5 +10,6 @@ data class ChatRoomEntity(
     val partnerUsername: String,         // Cache nama lawan bicara
     val lastMessage: String,
     val lastTimestamp: Long,
-    val partnerAvatar: String? = null
+    val partnerAvatar: String? = null,
+    val partnerMood: String? = null
 )

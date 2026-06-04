@@ -40,7 +40,6 @@ sealed class Screen {
     object SearchUser : Screen()
     object Scan : Screen()
     data class ChatDetail(val username: String, val friendId: String) : Screen()
-    object EditProfile : Screen()
     object Profile : Screen()
 }
 
@@ -88,9 +87,10 @@ class MainActivity : ComponentActivity() {
                     when (screen) {
                         is Screen.Login -> LoginScreen(
                             viewModel = authViewModel,
-                            onLoginSuccess = { token, uName, uId, avatar ->
+                            onLoginSuccess = { token, uName, uId, avatar, mood ->
                                 sessionManager.saveSession(token, uName, uId)
                                 sessionManager.saveAvatar(avatar)
+                                sessionManager.saveMood(mood)
                                 currentScreen = Screen.Dashboard
                             },
                             onNavigateToRegister = { currentScreen = Screen.Register },
@@ -98,9 +98,10 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.Register -> RegisterScreen(
                             viewModel = authViewModel,
-                            onRegisterSuccess = { token, uName, uId, avatar ->
+                            onRegisterSuccess = { token, uName, uId, avatar, mood ->
                                 sessionManager.saveSession(token, uName, uId)
                                 sessionManager.saveAvatar(avatar)
+                                sessionManager.saveMood(mood)
                                 currentScreen = Screen.Dashboard
                             },
                             onNavigateToLogin = { currentScreen = Screen.Login }
@@ -140,17 +141,10 @@ class MainActivity : ComponentActivity() {
                         is Screen.Profile -> {
                             com.danipinion.z_talk.ui.screen.profile.ProfileScreen(
                                 onBack = { currentScreen = Screen.Dashboard },
-                                onEditProfile = { currentScreen = Screen.EditProfile },
                                 onLogout = {
                                     sessionManager.clearSession()
                                     currentScreen = Screen.Login
                                 }
-                            )
-                        }
-                        is Screen.EditProfile -> {
-                            // We'll create this screen next
-                            com.danipinion.z_talk.ui.screen.profile.EditProfileScreen(
-                                onBack = { currentScreen = Screen.Profile }
                             )
                         }
                     }

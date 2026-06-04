@@ -248,13 +248,24 @@ fun UserSearchItem(
         
         Spacer(modifier = Modifier.width(16.dp))
         
-        Text(
-            text = user.username,
+        Row(
             modifier = Modifier.weight(1f),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Black
-        )
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = user.username,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Black
+            )
+            if (!user.mood.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = user.mood,
+                    fontSize = 16.sp
+                )
+            }
+        }
 
         when (user.relation) {
             "none" -> {

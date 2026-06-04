@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class FriendEntity(
     @PrimaryKey val id: String,
     val username: String,
-    val avatar: String? = null
+    val avatar: String? = null,
+    val mood: String? = null
 )

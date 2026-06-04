@@ -31,24 +31,33 @@ import androidx.compose.foundation.Image
 import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.ui.utils.AvatarHelper
 import com.danipinion.z_talk.ui.theme.*
+import com.danipinion.z_talk.data.remote.RetrofitClient
+import com.danipinion.z_talk.data.remote.UpdateAvatarPayload
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ProfileScreen(
     onBack: () -> Unit = {}, 
-    onEditProfile: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     BackHandler { onBack() }
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
+    val scope = rememberCoroutineScope()
+
     val username = remember { sessionManager.getUsername() ?: "Dani Pinion" }
-    val avatarName = sessionManager.getAvatar()
+    var avatarName by remember { mutableStateOf(sessionManager.getAvatar() ?: "panda") }
 
     var showMoodPicker by remember { mutableStateOf(false) }
-    var selectedMood by remember { mutableStateOf<String?>(null) }
+    var selectedMood by remember { mutableStateOf<String?>(sessionManager.getMood()) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showAvatarPicker by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -142,7 +151,7 @@ fun ProfileScreen(
                         .padding(6.dp)
                         .clip(CircleShape)
                         .background(GreyLight)
-                        .clickable { onEditProfile() },
+                        .clickable { showAvatarPicker = true },
                     contentAlignment = Alignment.Center
                 ) {
                     val avatarResId = AvatarHelper.getAvatarResourceId(context, avatarName)
@@ -165,7 +174,7 @@ fun ProfileScreen(
                         .clip(CircleShape)
                         .background(White)
                         .border(1.dp, GreyDivider, CircleShape)
-                        .clickable { onEditProfile() },
+                        .clickable { showAvatarPicker = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -180,7 +189,7 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Name & Bio
+        // Name
         Text(
             text = username,
             fontSize = 28.sp,
@@ -190,50 +199,27 @@ fun ProfileScreen(
             textAlign = TextAlign.Center
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Mobile Developer who focuses on\nsimplicity & aesthetics.",
-            fontSize = 15.sp,
-            color = GreyText,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 40.dp),
-            textAlign = TextAlign.Center,
-            lineHeight = 22.sp
-        )
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = errorMessage!!,
+                color = Color.Red,
+                fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                textAlign = TextAlign.Center
+            )
+        }
+
+        if (isSaving) {
+            Spacer(modifier = Modifier.height(16.dp))
+            CircularProgressIndicator(
+                color = RedPrimary,
+                modifier = Modifier.align(Alignment.CenterHorizontally).size(24.dp)
+            )
+        }
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Stats Card
-        Surface(
-            modifier = Modifier
-                .padding(horizontal = 24.dp)
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xFFF7F7F7),
-            border = BorderStroke(1.dp, Color(0xFFEEEEEE))
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(vertical = 24.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                StatItem(modifier = Modifier.weight(1f), count = "1.2K", label = "Friends")
-                
-                Box(modifier = Modifier.width(1.dp).height(30.dp).background(GreyDivider))
-                
-                StatItem(modifier = Modifier.weight(1f), count = "8.4K", label = "Chat Sent")
-                
-                Box(modifier = Modifier.width(1.dp).height(30.dp).background(GreyDivider))
-                
-                StatItem(modifier = Modifier.weight(1f), count = "124h", label = "Usage")
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
         // Action List
         Column(
             modifier = Modifier
@@ -241,12 +227,6 @@ fun ProfileScreen(
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            ProfileActionItem(
-                icon = Icons.Default.Edit,
-                title = "Edit Profile",
-                onClick = onEditProfile
-            )
-            
             ProfileActionItem(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 title = "Logout",
@@ -322,18 +302,136 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(moods) { mood ->
+                            val isSelected = selectedMood == mood
                             Box(
                                 modifier = Modifier
                                     .aspectRatio(1f)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(GreyLight)
+                                    .background(if (isSelected) RedPrimary.copy(alpha = 0.1f) else GreyLight)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 0.dp,
+                                        color = if (isSelected) RedPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
                                     .clickable {
-                                        selectedMood = mood
+                                        if (isSaving) return@clickable
+                                        val targetMood = if (selectedMood == mood) null else mood
+                                        selectedMood = targetMood
                                         showMoodPicker = false
+                                        isSaving = true
+                                        errorMessage = null
+                                        val token = sessionManager.getToken()
+                                        if (token.isNullOrEmpty()) {
+                                            errorMessage = "Not logged in"
+                                            isSaving = false
+                                            return@clickable
+                                        }
+                                        scope.launch {
+                                            try {
+                                                val response = withContext(Dispatchers.IO) {
+                                                    RetrofitClient.apiService.updateAvatar(
+                                                        "Bearer $token",
+                                                        UpdateAvatarPayload(mood = targetMood ?: "")
+                                                    )
+                                                }
+                                                if (response.isSuccessful) {
+                                                    sessionManager.saveMood(targetMood)
+                                                } else {
+                                                    errorMessage = response.body()?.error ?: response.message() ?: "Failed to update mood"
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.localizedMessage ?: "Unknown error occurred"
+                                            } finally {
+                                                isSaving = false
+                                            }
+                                        }
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(text = mood, fontSize = 28.sp)
+                            }
+                        }
+                    }
+                }
+            },
+            containerColor = White,
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    // Avatar Picker Dialog
+    if (showAvatarPicker) {
+        AlertDialog(
+            onDismissRequest = { showAvatarPicker = false },
+            confirmButton = {},
+            title = {
+                Text(
+                    text = "Select Avatar",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Black
+                )
+            },
+            text = {
+                Box(modifier = Modifier.height(280.dp)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(AvatarHelper.AVATAR_LIST) { targetAvatar ->
+                            val avatarResId = AvatarHelper.getAvatarResourceId(context, targetAvatar)
+                            val isSelected = targetAvatar == avatarName
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (isSelected) RedPrimary.copy(alpha = 0.1f) else GreyLight)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 0.dp,
+                                        color = if (isSelected) RedPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable {
+                                        if (isSaving) return@clickable
+                                        showAvatarPicker = false
+                                        isSaving = true
+                                        errorMessage = null
+                                        val token = sessionManager.getToken()
+                                        if (token.isNullOrEmpty()) {
+                                            errorMessage = "Not logged in"
+                                            isSaving = false
+                                            return@clickable
+                                        }
+                                        scope.launch {
+                                            try {
+                                                val response = withContext(Dispatchers.IO) {
+                                                    RetrofitClient.apiService.updateAvatar(
+                                                        "Bearer $token",
+                                                        UpdateAvatarPayload(targetAvatar)
+                                                    )
+                                                }
+                                                if (response.isSuccessful) {
+                                                    sessionManager.saveAvatar(targetAvatar)
+                                                    avatarName = targetAvatar
+                                                } else {
+                                                    errorMessage = response.body()?.error ?: response.message() ?: "Failed to update profile picture"
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.localizedMessage ?: "Unknown error occurred"
+                                            } finally {
+                                                isSaving = false
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                                    contentDescription = targetAvatar,
+                                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
                         }
                     }
@@ -383,26 +481,5 @@ fun ProfileActionItem(
                 modifier = Modifier.size(16.dp)
             )
         }
-    }
-}
-
-@Composable
-fun StatItem(modifier: Modifier = Modifier, count: String, label: String) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = count, 
-            fontSize = 20.sp, 
-            fontWeight = FontWeight.ExtraBold, 
-            color = Black
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label, 
-            fontSize = 13.sp, 
-            color = GreyText
-        )
     }
 }

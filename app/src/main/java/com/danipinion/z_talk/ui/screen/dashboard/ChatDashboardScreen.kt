@@ -210,7 +210,8 @@ fun ChatDashboardScreen(
                         time = "Now",
                         avatarUrl = friend.avatar ?: "",
                         isUnread = false,
-                        isRequest = false
+                        isRequest = false,
+                        mood = friend.mood
                     )
                 }
                 1 -> emptyList() // Unread chats placeholder
@@ -222,7 +223,8 @@ fun ChatDashboardScreen(
                         time = "Pending",
                         avatarUrl = request.senderAvatar ?: "",
                         isUnread = true,
-                        isRequest = true
+                        isRequest = true,
+                        mood = request.senderMood
                     )
                 }
                 else -> emptyList()
@@ -608,12 +610,21 @@ fun ChatListItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = chat.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = Black
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = chat.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = Black
+                    )
+                    if (!chat.mood.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = chat.mood,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
                 
                 if (chat.isUnread && selectedTab == 1) {
                     Box(
@@ -814,7 +825,8 @@ data class ChatItemData(
     val time: String,
     val avatarUrl: String = "",
     val isUnread: Boolean = false,
-    val isRequest: Boolean = false
+    val isRequest: Boolean = false,
+    val mood: String? = null
 )
 
 data class NavigationItem(

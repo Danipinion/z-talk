@@ -11,6 +11,7 @@ class SessionManager(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_AVATAR = "avatar"
+        private const val KEY_MOOD = "mood"
     }
 
     fun saveSession(token: String, username: String, userId: String) {
@@ -26,10 +27,15 @@ class SessionManager(context: Context) {
         prefs.edit().putString(KEY_AVATAR, avatar).apply()
     }
 
+    fun saveMood(mood: String?) {
+        prefs.edit().putString(KEY_MOOD, mood).apply()
+    }
+
     fun getToken(): String? = prefs.getString(KEY_TOKEN, null)
     fun getUsername(): String? = prefs.getString(KEY_USERNAME, null)
     fun getUserId(): String? = prefs.getString(KEY_USER_ID, null)
     fun getAvatar(): String? = prefs.getString(KEY_AVATAR, null)
+    fun getMood(): String? = prefs.getString(KEY_MOOD, null)
 
     fun isLoggedIn(): Boolean = getToken() != null
 
