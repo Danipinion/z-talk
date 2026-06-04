@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { db } from '../config/firebase.js';
 
 interface ClientMessage {
-  type: 'register' | 'message' | 'clear_chat' | 'remove_friend' | 'block_user' | 'use_ghost';
+  type: 'register' | 'message' | 'clear_chat' | 'remove_friend' | 'block_user' | 'use_ghost' | 'delete_message';
   userId?: string;
   roomId?: string;
   senderId?: string;
@@ -130,6 +130,30 @@ export function initWebSocketServer(server: any) {
           const receiverWs = clients.get(receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
             receiverWs.send(broadcastPayload);
+          }
+        } else if (payload.type === 'delete_message' && payload.roomId && payload.senderId && payload.receiverId) {
+          const { roomId, senderId, receiverId } = payload;
+          const msgIds: string[] = (payload as any).messageIds || (payload.messageId ? [payload.messageId] : []);
+          
+          if (msgIds.length > 0) {
+            await Promise.all(msgIds.map(id => db.ref(`messages/${roomId}/${id}`).remove()));
+            console.log(`Deleted messages ${msgIds} in Firebase`);
+
+            const broadcastPayload = JSON.stringify({
+              type: 'delete_message',
+              roomId,
+              messageIds: msgIds
+            });
+
+            const senderWs = clients.get(senderId);
+            if (senderWs && senderWs.readyState === WebSocket.OPEN) {
+              senderWs.send(broadcastPayload);
+            }
+
+            const receiverWs = clients.get(receiverId);
+            if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
+              receiverWs.send(broadcastPayload);
+            }
           }
         } else if (payload.type === 'clear_chat' && payload.roomId && payload.senderId && payload.receiverId) {
           const { roomId, senderId, receiverId } = payload;
