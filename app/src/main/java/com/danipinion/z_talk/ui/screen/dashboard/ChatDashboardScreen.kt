@@ -232,9 +232,14 @@ fun ChatDashboardScreen(
                 )
             }
 
+            val sortedMappedChats = mappedChats.sortedByDescending { chat ->
+                val rId = if (userId < chat.id) "${userId}_${chat.id}" else "${chat.id}_${userId}"
+                chatRooms.find { it.roomId == rId }?.lastTimestamp ?: 0L
+            }
+
             val currentChats = when (selectedTab) {
-                0 -> mappedChats
-                1 -> mappedChats.filter { it.isUnread }
+                0 -> sortedMappedChats
+                1 -> sortedMappedChats.filter { it.isUnread }
                 2 -> requests.map { request ->
                     ChatItemData(
                         id = request.senderId,
