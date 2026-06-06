@@ -31,6 +31,10 @@ import com.danipinion.z_talk.data.local.SessionManager
 import com.danipinion.z_talk.data.local.AppDatabase
 import com.danipinion.z_talk.data.remote.WebSocketManager
 import com.danipinion.z_talk.ui.theme.ZtalkTheme
+import android.os.Build
+import com.danipinion.z_talk.data.remote.UpdateAvatarPayload
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 sealed class Screen {
     object Login : Screen()
@@ -47,6 +51,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = android.Manifest.permission.POST_NOTIFICATIONS
+            if (checkSelfPermission(permission) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(permission), 101)
+            }
+        }
+
         setContent {
             ZtalkTheme {
                 val sessionManager = remember { SessionManager(applicationContext) }
@@ -71,11 +83,39 @@ class MainActivity : ComponentActivity() {
                 var webSocketManager by remember { mutableStateOf<WebSocketManager?>(null) }
 
                 LaunchedEffect(userId) {
+                    val scope = this
                     if (userId.isNotEmpty()) {
                         val manager = WebSocketManager(applicationContext, userId)
                         manager.connect()
                         webSocketManager = manager
                         Log.d("MainActivity", "WebSocketManager connected for user $userId")
+
+                        // Retrieve and upload FCM Token
+                        com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+                            .addOnCompleteListener { task ->
+                                if (task.isSuccessful) {
+                                    val token = task.result
+                                    Log.d("MainActivity", "FCM Token: $token")
+                                    sessionManager.saveFcmToken(token)
+
+                                    val jwtToken = sessionManager.getToken()
+                                    if (jwtToken != null && token != null) {
+                                        scope.launch(Dispatchers.IO) {
+                                            try {
+                                                RetrofitClient.apiService.updateAvatar(
+                                                    token = "Bearer $jwtToken",
+                                                    payload = UpdateAvatarPayload(fcmToken = token)
+                                                )
+                                                Log.d("MainActivity", "Uploaded FCM Token successfully")
+                                            } catch (e: Exception) {
+                                                Log.e("MainActivity", "Failed to upload FCM token: ${e.localizedMessage}")
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Log.w("MainActivity", "Fetching FCM registration token failed", task.exception)
+                                }
+                            }
                     } else {
                         webSocketManager?.disconnect()
                         webSocketManager = null

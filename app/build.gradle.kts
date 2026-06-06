@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -79,6 +80,10 @@ dependencies {
 
     // ZXing Core for QR Generation
     implementation("com.google.zxing:core:3.5.3")
+
+    // Firebase Messaging
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
 
     testImplementation(libs.junit)
