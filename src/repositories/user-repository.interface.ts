@@ -7,4 +7,5 @@ export interface IUserRepository {
   findById(id: string): Promise<User | null>;
   updateAvatar(userId: string, avatar: string): Promise<void>;
   updateMood(userId: string, mood: string | null): Promise<void>;
+  updateFcmToken(userId: string, fcmToken: string | null): Promise<void>;
 }

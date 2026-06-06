@@ -75,6 +75,10 @@ export class AuthService {
     await this.userRepository.updateMood(userId, mood);
   }
 
+  async updateFcmToken(userId: string, fcmToken: string | null): Promise<void> {
+    await this.userRepository.updateFcmToken(userId, fcmToken);
+  }
+
   async getProfile(userId: string): Promise<User | null> {
     return this.userRepository.findById(userId);
   }

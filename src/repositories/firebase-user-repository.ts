@@ -22,6 +22,7 @@ export class FirebaseUserRepository implements IUserRepository {
           createdAt: data.createdAt,
           avatar: data.avatar,
           mood: data.mood,
+          fcmToken: data.fcmToken,
         }
       };
     });
@@ -56,7 +57,8 @@ export class FirebaseUserRepository implements IUserRepository {
       username: data.username,
       createdAt: data.createdAt,
       avatar: data.avatar,
-      mood: data.mood
+      mood: data.mood,
+      fcmToken: data.fcmToken
     };
   }
 
@@ -66,5 +68,9 @@ export class FirebaseUserRepository implements IUserRepository {
 
   async updateMood(userId: string, mood: string | null): Promise<void> {
     await this.usersRef.child(userId).update({ mood: mood || null });
+  }
+
+  async updateFcmToken(userId: string, fcmToken: string | null): Promise<void> {
+    await this.usersRef.child(userId).update({ fcmToken: fcmToken || null });
   }
 }

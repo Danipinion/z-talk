@@ -1,5 +1,42 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { db } from '../config/firebase.js';
+import admin, { db } from '../config/firebase.js';
+
+async function sendPushNotification(receiverId: string, senderName: string, messageText: string, roomId: string) {
+  try {
+    const userSnapshot = await db.ref(`users/${receiverId}`).once('value');
+    if (!userSnapshot.exists()) return;
+
+    const receiverData = userSnapshot.val();
+    const fcmToken = receiverData?.fcmToken;
+    if (!fcmToken) {
+      console.log(`No FCM token registered for user ${receiverId}. Skipping notification.`);
+      return;
+    }
+
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: senderName,
+        body: messageText
+      },
+      data: {
+        roomId: roomId
+      },
+      android: {
+        priority: 'high' as const,
+        notification: {
+          sound: 'default',
+          channelId: 'chat_messages'
+        }
+      }
+    };
+
+    const response = await admin.messaging().send(message);
+    console.log(`Successfully sent FCM notification to ${receiverId}:`, response);
+  } catch (error) {
+    console.error(`Error sending FCM notification to ${receiverId}:`, error);
+  }
+}
 
 interface ClientMessage {
   type: 'register' | 'message' | 'clear_chat' | 'remove_friend' | 'block_user' | 'use_ghost' | 'delete_message';
@@ -36,6 +73,40 @@ export function initWebSocketServer(server: any) {
           currentUserId = payload.userId;
           clients.set(currentUserId, ws);
           console.log(`WebSocket registered user: ${currentUserId}`);
+
+          // Fetch and deliver missed/offline messages from Firebase for this user's rooms
+          try {
+            const userId = payload.userId;
+            const roomsSnapshot = await db.ref('messages').once('value');
+            if (roomsSnapshot.exists()) {
+              roomsSnapshot.forEach((roomSnapshot) => {
+                const roomId = roomSnapshot.key;
+                if (roomId && (roomId.startsWith(`${userId}_`) || roomId.endsWith(`_${userId}`))) {
+                  roomSnapshot.forEach((msgSnapshot) => {
+                    const msg = msgSnapshot.val();
+                    if (msg) {
+                      const responsePayload = JSON.stringify({
+                        type: 'message',
+                        messageId: msg.messageId,
+                        roomId: msg.roomId,
+                        senderId: msg.senderId,
+                        text: msg.text,
+                        timestamp: msg.timestamp,
+                        isGhost: msg.isGhost || false,
+                        isTemporary: msg.isTemporary || false,
+                        ghostMessageId: msg.ghostMessageId || null
+                      });
+                      if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(responsePayload);
+                      }
+                    }
+                  });
+                }
+              });
+            }
+          } catch (err) {
+            console.error('Error fetching offline messages on register:', err);
+          }
         } else if (payload.type === 'message' && payload.roomId && payload.senderId && payload.receiverId && payload.text) {
           const { roomId, senderId, receiverId, text, isGhost, isTemporary, ghostMessageId } = payload;
           const timestamp = Date.now();
@@ -109,6 +180,20 @@ export function initWebSocketServer(server: any) {
           const receiverWs = clients.get(receiverId);
           if (receiverWs && receiverWs.readyState === WebSocket.OPEN) {
             receiverWs.send(responsePayload);
+          } else if (!isTemporary) {
+            // Recipient is offline / disconnected. Send FCM Push Notification!
+            (async () => {
+              try {
+                let senderName = "New Message";
+                const senderSnapshot = await db.ref(`users/${senderId}`).once('value');
+                if (senderSnapshot.exists()) {
+                  senderName = senderSnapshot.val().username || "New Message";
+                }
+                await sendPushNotification(receiverId, senderName, text || "", roomId);
+              } catch (e) {
+                console.error("Failed to send push notification:", e);
+              }
+            })();
           }
         } else if (payload.type === 'use_ghost' && payload.roomId && payload.senderId && payload.receiverId && payload.messageId) {
           const { roomId, senderId, receiverId, messageId } = payload;

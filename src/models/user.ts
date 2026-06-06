@@ -5,6 +5,7 @@ export interface User {
   createdAt?: number;
   avatar?: string;
   mood?: string;
+  fcmToken?: string;
 }
 
 export interface AuthResponse {
