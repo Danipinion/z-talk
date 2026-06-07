@@ -127,10 +127,11 @@ class MainActivity : ComponentActivity() {
                     when (screen) {
                         is Screen.Login -> LoginScreen(
                             viewModel = authViewModel,
-                            onLoginSuccess = { token, uName, uId, avatar, mood ->
+                            onLoginSuccess = { token, uName, uId, avatar, mood, background ->
                                 sessionManager.saveSession(token, uName, uId)
                                 sessionManager.saveAvatar(avatar)
                                 sessionManager.saveMood(mood)
+                                sessionManager.saveBackground(background)
                                 currentScreen = Screen.Dashboard
                             },
                             onNavigateToRegister = { currentScreen = Screen.Register },
@@ -138,10 +139,11 @@ class MainActivity : ComponentActivity() {
                         )
                         is Screen.Register -> RegisterScreen(
                             viewModel = authViewModel,
-                            onRegisterSuccess = { token, uName, uId, avatar, mood ->
+                            onRegisterSuccess = { token, uName, uId, avatar, mood, background ->
                                 sessionManager.saveSession(token, uName, uId)
                                 sessionManager.saveAvatar(avatar)
                                 sessionManager.saveMood(mood)
+                                sessionManager.saveBackground(background)
                                 currentScreen = Screen.Dashboard
                             },
                             onNavigateToLogin = { currentScreen = Screen.Login }

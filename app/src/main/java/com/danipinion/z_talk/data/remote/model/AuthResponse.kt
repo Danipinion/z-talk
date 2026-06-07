@@ -11,5 +11,6 @@ data class UserInfo(
     val id: String,
     val username: String,
     val avatar: String? = null,
-    val mood: String? = null
+    val mood: String? = null,
+    val background: String? = null
 )

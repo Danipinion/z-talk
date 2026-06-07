@@ -62,6 +62,31 @@ fun ProfileScreen(
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    LaunchedEffect(Unit) {
+        val token = sessionManager.getToken()
+        if (!token.isNullOrEmpty()) {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.apiService.getProfile("Bearer $token")
+                }
+                if (response.isSuccessful) {
+                    val profile = response.body()
+                    if (profile != null) {
+                        sessionManager.saveAvatar(profile.avatar)
+                        sessionManager.saveMood(profile.mood)
+                        sessionManager.saveBackground(profile.background)
+                        
+                        profile.avatar?.let { avatarName = it }
+                        selectedMood = profile.mood
+                        profile.background?.let { backgroundName = it }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore sync errors silently
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
