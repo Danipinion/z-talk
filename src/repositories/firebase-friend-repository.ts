@@ -31,7 +31,8 @@ export class FirebaseFriendRepository implements IFriendRepository {
           status: data.status,
           createdAt: data.createdAt,
           senderAvatar: userData.avatar,
-          senderMood: userData.mood
+          senderMood: userData.mood,
+          senderBackground: userData.background
         });
       });
       promises.push(promise);
@@ -75,7 +76,8 @@ export class FirebaseFriendRepository implements IFriendRepository {
             id: friendId,
             username: userData.username,
             avatar: userData.avatar,
-            mood: userData.mood
+            mood: userData.mood,
+            background: userData.background
           });
         }
       })
@@ -131,6 +133,7 @@ export class FirebaseFriendRepository implements IFriendRepository {
           username: user.username,
           avatar: user.avatar,
           mood: user.mood,
+          background: user.background,
           relation
         });
       }

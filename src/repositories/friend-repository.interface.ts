@@ -5,6 +5,7 @@ export interface FriendRequest {
   createdAt: number;
   senderAvatar?: string;
   senderMood?: string;
+  senderBackground?: string;
 }
 
 export interface Friend {
@@ -12,6 +13,7 @@ export interface Friend {
   username: string;
   avatar?: string;
   mood?: string;
+  background?: string;
 }
 
 export interface IFriendRepository {
