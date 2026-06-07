@@ -50,6 +50,9 @@ fun ProfileScreen(
     val username = remember { sessionManager.getUsername() ?: "Dani Pinion" }
     var avatarName by remember { mutableStateOf(sessionManager.getAvatar() ?: "panda") }
 
+    var backgroundName by remember { mutableStateOf(sessionManager.getBackground() ?: "bg_1") }
+    var showBackgroundPicker by remember { mutableStateOf(false) }
+
     var showMoodPicker by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(sessionManager.getMood()) }
     val moods = listOf("😊", "😎", "😴", "🔥", "🚀", "🎮", "📚", "🎨", "💻", "🍕", "🏖️", "✨")
@@ -66,45 +69,50 @@ fun ProfileScreen(
             .verticalScroll(rememberScrollState())
     ) {
         // Banner & Avatar Section
+        // Banner Gambar Background
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(300.dp)
+                .height(240.dp)
+                .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
         ) {
-            // Banner (Placeholder with clouds color)
-            Box(
+            Image(
+                painter = androidx.compose.ui.res.painterResource(
+                    id = AvatarHelper.getBackgroundResourceId(context, backgroundName)
+                ),
+                contentDescription = "Background",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+
+            // Kumpulan Tombol Kanan Atas (Edit Background & Mood)
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(240.dp)
-                    .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp))
-                    .background(Color(0xFFDEEBF7)) // Light cloud blue
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp) // Jarak otomatis antar tombol
             ) {
-                // Back Button
+                // 1. Tombol Edit Background (Pencil)
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .statusBarsPadding()
-                        .padding(16.dp)
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(White.copy(alpha = 0.9f))
-                        .clickable { onBack() },
+                        .clickable { showBackgroundPicker = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft, 
-                        contentDescription = "Back", 
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Background",
                         tint = Black,
                         modifier = Modifier.size(24.dp)
                     )
                 }
 
-                // Mood Button (+)
+                // 2. Tombol Mood (+)
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .statusBarsPadding()
-                        .padding(16.dp)
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(White.copy(alpha = 0.9f))
@@ -113,8 +121,8 @@ fun ProfileScreen(
                 ) {
                     if (selectedMood == null) {
                         Icon(
-                            imageVector = Icons.Default.Add, 
-                            contentDescription = "Add Mood", 
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Mood",
                             tint = Black,
                             modifier = Modifier.size(24.dp)
                         )
@@ -430,6 +438,77 @@ fun ProfileScreen(
                                     painter = androidx.compose.ui.res.painterResource(id = avatarResId),
                                     contentDescription = targetAvatar,
                                     modifier = Modifier.fillMaxSize().padding(8.dp),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            containerColor = White,
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    // Background Picker Dialog
+    if (showBackgroundPicker) {
+        AlertDialog(
+            onDismissRequest = { showBackgroundPicker = false },
+            confirmButton = {},
+            title = { Text("Select Background", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            text = {
+                Box(modifier = Modifier.height(280.dp)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(AvatarHelper.BACKGROUND_LIST) { targetBg ->
+                            val bgResId = AvatarHelper.getBackgroundResourceId(context, targetBg)
+                            val isSelected = targetBg == backgroundName
+                            Box(
+                                modifier = Modifier
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(
+                                        width = if (isSelected) 3.dp else 0.dp,
+                                        color = if (isSelected) RedPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable {
+                                        if (isSaving) return@clickable
+                                        showBackgroundPicker = false
+                                        isSaving = true
+                                        errorMessage = null
+                                        val token = sessionManager.getToken()
+                                        if (token.isNullOrEmpty()) { isSaving = false; return@clickable }
+                                        scope.launch {
+                                            try {
+                                                val response = withContext(Dispatchers.IO) {
+                                                    RetrofitClient.apiService.updateAvatar(
+                                                        "Bearer $token",
+                                                        UpdateAvatarPayload(background = targetBg)
+                                                    )
+                                                }
+                                                if (response.isSuccessful) {
+                                                    sessionManager.saveBackground(targetBg)
+                                                    backgroundName = targetBg
+                                                } else {
+                                                    errorMessage = "Gagal memperbarui background"
+                                                }
+                                            } catch (e: Exception) {
+                                                errorMessage = e.localizedMessage
+                                            } finally {
+                                                isSaving = false
+                                            }
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = bgResId),
+                                    contentDescription = targetBg,
+                                    modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop
                                 )
                             }

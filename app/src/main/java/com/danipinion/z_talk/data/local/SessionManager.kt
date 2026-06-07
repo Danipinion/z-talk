@@ -13,8 +13,14 @@ class SessionManager(context: Context) {
         private const val KEY_AVATAR = "avatar"
         private const val KEY_MOOD = "mood"
         private const val KEY_FCM_TOKEN = "fcm_token"
+        private const val KEY_BACKGROUND = "background"
     }
 
+    fun saveBackground(bg: String?) {
+        prefs.edit().putString(KEY_BACKGROUND, bg).apply()
+    }
+
+    fun getBackground(): String? = prefs.getString(KEY_BACKGROUND, null)
     fun saveFcmToken(token: String?) {
         prefs.edit().putString(KEY_FCM_TOKEN, token).apply()
     }

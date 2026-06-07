@@ -16,4 +16,14 @@ object AvatarHelper {
         val resId = context.resources.getIdentifier(avatarName, "drawable", context.packageName)
         return if (resId != 0) resId else context.resources.getIdentifier("panda", "drawable", context.packageName)
     }
+
+    val BACKGROUND_LIST = listOf(
+        "bg_1", "bg_2", "bg_3", "bg_4", "bg_5", "bg_6", "bg_7", "bg_8", "bg_9"
+    )
+
+    fun getBackgroundResourceId(context: Context, bgName: String?): Int {
+        if (bgName.isNullOrEmpty()) return context.resources.getIdentifier("bg_1", "drawable", context.packageName)
+        val resId = context.resources.getIdentifier(bgName, "drawable", context.packageName)
+        return if (resId != 0) resId else context.resources.getIdentifier("bg_1", "drawable", context.packageName)
+    }
 }

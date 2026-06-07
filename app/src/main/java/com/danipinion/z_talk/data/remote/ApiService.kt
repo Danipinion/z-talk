@@ -127,6 +127,7 @@ data class UserProfileResponse(
 data class UpdateAvatarPayload(
     val avatar: String? = null,
     val mood: String? = null,
-    val fcmToken: String? = null
+    val fcmToken: String? = null,
+    val background: String? = null
 )
 
