@@ -12,7 +12,14 @@ class SessionManager(context: Context) {
         private const val KEY_USER_ID = "user_id"
         private const val KEY_AVATAR = "avatar"
         private const val KEY_MOOD = "mood"
+        private const val KEY_FCM_TOKEN = "fcm_token"
     }
+
+    fun saveFcmToken(token: String?) {
+        prefs.edit().putString(KEY_FCM_TOKEN, token).apply()
+    }
+
+    fun getFcmToken(): String? = prefs.getString(KEY_FCM_TOKEN, null)
 
     fun saveSession(token: String, username: String, userId: String) {
         prefs.edit().apply {
