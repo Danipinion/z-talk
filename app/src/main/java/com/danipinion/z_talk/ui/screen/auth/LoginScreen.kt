@@ -9,11 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.danipinion.z_talk.data.remote.model.AuthRequest
 import com.danipinion.z_talk.ui.theme.*
+import com.danipinion.z_talk.R
 
 @Composable
 fun LoginScreen(
@@ -57,16 +59,11 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // Logo / Welcome Area
-            Surface(
-                modifier = Modifier.size(100.dp),
-                shape = RoundedCornerShape(28.dp),
-                color = RedPastel
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("Z", fontSize = 48.sp, fontWeight = FontWeight.Black, color = RedPrimary)
-                }
-            }
-
+            Image(
+                painter = painterResource(id = R.drawable.icon_z_talk),
+                contentDescription = "App Logo",
+                modifier = Modifier.size(100.dp)
+            )
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
