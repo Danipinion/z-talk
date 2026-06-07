@@ -51,7 +51,10 @@ export class AuthService {
       token,
       user: {
         id: record.id,
-        username: record.user.username
+        username: record.user.username,
+        avatar: record.user.avatar,
+        mood: record.user.mood,
+        background: record.user.background
       }
     };
   }
@@ -77,6 +80,10 @@ export class AuthService {
 
   async updateFcmToken(userId: string, fcmToken: string | null): Promise<void> {
     await this.userRepository.updateFcmToken(userId, fcmToken);
+  }
+
+  async updateBackground(userId: string, background: string | null): Promise<void> {
+    await this.userRepository.updateBackground(userId, background);
   }
 
   async getProfile(userId: string): Promise<User | null> {

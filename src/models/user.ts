@@ -6,6 +6,7 @@ export interface User {
   avatar?: string;
   mood?: string;
   fcmToken?: string;
+  background?: string;
 }
 
 export interface AuthResponse {

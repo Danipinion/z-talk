@@ -43,7 +43,7 @@ export class AuthController {
   updateAvatar = async (c: Context) => {
     try {
       const user = c.get('user');
-      const { avatar, mood, fcmToken } = await c.req.json();
+      const { avatar, mood, fcmToken, background } = await c.req.json();
       if (avatar !== undefined) {
         await this.authService.updateAvatar(user.id, avatar);
       }
@@ -52,6 +52,9 @@ export class AuthController {
       }
       if (fcmToken !== undefined) {
         await this.authService.updateFcmToken(user.id, fcmToken);
+      }
+      if (background !== undefined) {
+        await this.authService.updateBackground(user.id, background);
       }
       return c.json({ message: 'Profile updated successfully' });
     } catch (error: any) {
