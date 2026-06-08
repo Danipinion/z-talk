@@ -10,5 +10,6 @@ data class FriendRequestEntity(
     val status: String,
     val createdAt: Long,
     val senderAvatar: String? = null,
-    val senderMood: String? = null
+    val senderMood: String? = null,
+    val senderBackground: String? = null
 )

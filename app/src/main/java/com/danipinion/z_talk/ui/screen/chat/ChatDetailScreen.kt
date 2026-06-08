@@ -106,6 +106,9 @@ fun ChatDetailScreen(
     val partnerMood = remember(friendsList, friendId) {
         friendsList.find { it.id == friendId }?.mood
     }
+    val partnerBackground = remember(friendsList, friendId) {
+        friendsList.find { it.id == friendId }?.background
+    }
 
     val selectedMessageIds = remember { mutableStateListOf<String>() }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -371,87 +374,237 @@ fun ChatDetailScreen(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Box {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .combinedClickable(
-                                        onLongClick = { if (!isTemporaryMode) showMenu = true },
-                                        onClick = { /* Could open profile */ }
+            // Custom header showing partner's background
+            val bgResId = AvatarHelper.getBackgroundResourceId(context, if (isTemporaryMode) null else partnerBackground)
+            val avatarResId = AvatarHelper.getAvatarResourceId(context, partnerAvatar)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                // Background image or ghost-mode red
+                if (isTemporaryMode) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF8B0000), Color(0xFFCC0000))
+                                )
+                            )
+                    )
+                } else {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(id = bgResId),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                    )
+                    // Dark gradient overlay for readability
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xCC000000),
+                                        Color(0x88000000),
+                                        Color(0xBB000000)
                                     )
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = if (isTemporaryMode) "Ghost Session" else username,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isTemporaryMode) RedPrimary else Black
-                                    )
-                                    if (!isTemporaryMode && !partnerMood.isNullOrEmpty()) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = partnerMood,
-                                            fontSize = 18.sp
-                                        )
-                                    }
-                                }
-                            }
+                                )
+                            )
+                    )
+                }
 
+                // Center content: avatar + name + mood
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .statusBarsPadding()
+                        .padding(top = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.White.copy(alpha = 0.8f), CircleShape)
+                    ) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = avatarResId),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    // Name
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (isTemporaryMode) "Ghost Session" else username,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        if (!isTemporaryMode && !partnerMood.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = partnerMood,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                // Back button (top-left)
+                Box(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(start = 8.dp, top = 8.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0x55000000))
+                        .clickable {
+                            if (selectedMessageIds.isNotEmpty()) {
+                                selectedMessageIds.clear()
+                            } else if (isTemporaryMode) {
+                                isTemporaryMode = false
+                            } else {
+                                onBack()
+                            }
+                        }
+                        .align(Alignment.TopStart),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Back",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Action buttons (top-right)
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(end = 8.dp, top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (selectedMessageIds.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0x55000000))
+                                .clickable {
+                                    showDeleteConfirmDialog = true
+                                    isDeleteConfirmDialogVisible = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete Selected",
+                                tint = Color(0xFFFF6B6B),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    if (!isTemporaryMode) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0x55000000))
+                                .then(
+                                    if (!isBlocked && !isBlockedByOther && !isRemovedByOther)
+                                        Modifier.clickable {
+                                            webSocketManager?.sendMessage(
+                                                roomId = roomId,
+                                                receiverId = friendId,
+                                                text = "Ghost Message",
+                                                isGhost = true
+                                            )
+                                        }
+                                    else Modifier.alpha(0.4f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("👻", fontSize = 18.sp)
+                        }
+                    }
+                    // Menu button (long-press title area menu moved here)
+                    if (!isTemporaryMode) {
+                        Box {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x55000000))
+                                    .clickable { showMenu = true },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                             if (showMenu) {
                                 val density = LocalDensity.current
                                 Popup(
                                     onDismissRequest = { isMenuVisible = false },
-                                    offset = IntOffset(0, with(density) { 60.dp.roundToPx() }), // Lowered position
-                                    alignment = Alignment.BottomCenter,
+                                    offset = IntOffset(
+                                        with(density) { (-160).dp.roundToPx() },
+                                        with(density) { 44.dp.roundToPx() }
+                                    ),
                                     properties = PopupProperties(focusable = true)
                                 ) {
-                                    AnimatedVisibility(
+                                    Box {
+                                    androidx.compose.animation.AnimatedVisibility(
                                         visible = isMenuVisible,
-                                        enter = fadeIn() + scaleIn(transformOrigin = TransformOrigin(0.5f, 0f)),
-                                        exit = fadeOut() + scaleOut(transformOrigin = TransformOrigin(0.5f, 0f))
+                                        enter = fadeIn() + scaleIn(transformOrigin = TransformOrigin(1f, 0f)),
+                                        exit = fadeOut() + scaleOut(transformOrigin = TransformOrigin(1f, 0f))
                                     ) {
                                         Surface(
                                             modifier = Modifier.width(220.dp),
                                             shape = RoundedCornerShape(18.dp),
                                             color = White,
                                             border = BorderStroke(0.5.dp, Color(0xFFEEEEEE)),
-                                            shadowElevation = 0.dp
+                                            shadowElevation = 8.dp
                                         ) {
                                             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                                                 DropdownMenuItem(
                                                     text = { Text("Search in Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
                                                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
-                                                    onClick = { 
-                                                        isMenuVisible = false 
+                                                    onClick = {
+                                                        isMenuVisible = false
                                                         isSearchVisible = true
                                                     }
                                                 )
-                                                
                                                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
-
                                                 DropdownMenuItem(
                                                     text = { Text("Clear Chat", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF333333)) },
                                                     leadingIcon = { Icon(Icons.Default.DeleteSweep, contentDescription = null, tint = Color(0xFF888888), modifier = Modifier.size(22.dp)) },
-                                                    onClick = { 
-                                                        isMenuVisible = false 
+                                                    onClick = {
+                                                        isMenuVisible = false
                                                         showDeleteChatDialog = true
                                                     }
                                                 )
-                                                
                                                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = Color(0xFFF5F5F5), thickness = 1.dp)
-                                                
                                                 DropdownMenuItem(
                                                     text = { Text("Remove Friend", color = RedPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) },
                                                     leadingIcon = { Icon(Icons.Default.PersonRemove, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(22.dp)) },
-                                                    onClick = { 
+                                                    onClick = {
                                                         isMenuVisible = false
                                                         showRemoveFriendDialog = true
                                                     }
@@ -459,7 +612,7 @@ fun ChatDetailScreen(
                                                 DropdownMenuItem(
                                                     text = { Text(if (isBlocked) "Unblock User" else "Block User", color = RedPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) },
                                                     leadingIcon = { Icon(if (isBlocked) Icons.Default.CheckCircle else Icons.Default.Block, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(22.dp)) },
-                                                    onClick = { 
+                                                    onClick = {
                                                         isMenuVisible = false
                                                         if (isBlocked) {
                                                             Thread {
@@ -472,85 +625,20 @@ fun ChatDetailScreen(
                                                 )
                                             }
                                         }
-
-                                        // Cleanup showMenu after exit animation
                                         LaunchedEffect(isMenuVisible) {
                                             if (!isMenuVisible) {
-                                                delay(300) // Wait for exit animation to complete
+                                                delay(300)
                                                 showMenu = false
                                             }
                                         }
-                                    }
+                                    } // end AnimatedVisibility
+                                    } // end Box
                                 }
                             }
                         }
                     }
-                },
-                navigationIcon = {
-                    Box(
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF7F7F7))
-                            .clickable { 
-                                if (selectedMessageIds.isNotEmpty()) {
-                                    selectedMessageIds.clear()
-                                } else if (isTemporaryMode) {
-                                    isTemporaryMode = false
-                                } else {
-                                    onBack()
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = "Back",
-                            tint = GreyText,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                },
-                actions = {
-                    if (selectedMessageIds.isNotEmpty()) {
-                        IconButton(
-                            onClick = { 
-                                showDeleteConfirmDialog = true
-                                isDeleteConfirmDialogVisible = true
-                            },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete Selected",
-                                tint = RedPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    if (!isTemporaryMode) {
-                        IconButton(
-                            onClick = { 
-                                webSocketManager?.sendMessage(
-                                    roomId = roomId,
-                                    receiverId = friendId,
-                                    text = "Ghost Message",
-                                    isGhost = true
-                                )
-                            },
-                            enabled = !isBlocked && !isBlockedByOther && !isRemovedByOther,
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .then(if (isBlocked || isBlockedByOther || isRemovedByOther) Modifier.alpha(0.5f) else Modifier)
-                        ) {
-                            Text("👻", fontSize = 22.sp)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = White),
-                modifier = Modifier.statusBarsPadding()
-            )
+                }
+            }
         },
 
         snackbarHost = { 

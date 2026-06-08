@@ -99,14 +99,16 @@ data class FriendRequestResponse(
     val status: String,
     val createdAt: Long,
     val senderAvatar: String? = null,
-    val senderMood: String? = null
+    val senderMood: String? = null,
+    val senderBackground: String? = null
 )
 
 data class FriendResponse(
     val id: String,
     val username: String,
     val avatar: String? = null,
-    val mood: String? = null
+    val mood: String? = null,
+    val background: String? = null
 )
 
 data class SearchUserResponse(
@@ -114,7 +116,8 @@ data class SearchUserResponse(
     val username: String,
     val relation: String, // "none", "sent", "received", "friend"
     val avatar: String? = null,
-    val mood: String? = null
+    val mood: String? = null,
+    val background: String? = null
 )
 
 data class UserProfileResponse(
