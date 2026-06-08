@@ -8,5 +8,6 @@ export interface IUserRepository {
   updateAvatar(userId: string, avatar: string): Promise<void>;
   updateMood(userId: string, mood: string | null): Promise<void>;
   updateFcmToken(userId: string, fcmToken: string | null): Promise<void>;
+  updateBackground(userId: string, background: string | null): Promise<void>;
   updateProfile(userId: string, data: Partial<User>): Promise<void>;
 }
