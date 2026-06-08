@@ -1,4 +1,4 @@
-import { User } from '../models/user.js';
+import { User } from "../models/user.js";
 
 export interface IUserRepository {
   findByUsername(username: string): Promise<{ id: string; user: User } | null>;
@@ -8,4 +8,5 @@ export interface IUserRepository {
   updateAvatar(userId: string, avatar: string): Promise<void>;
   updateMood(userId: string, mood: string | null): Promise<void>;
   updateFcmToken(userId: string, fcmToken: string | null): Promise<void>;
+  updateProfile(userId: string, data: Partial<User>): Promise<void>;
 }

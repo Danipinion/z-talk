@@ -1,13 +1,22 @@
-import { IUserRepository } from './user-repository.interface.js';
-import { User } from '../models/user.js';
-import { db } from '../config/firebase.js';
-import admin from 'firebase-admin';
+import { IUserRepository } from "./user-repository.interface.js";
+import { User } from "../models/user.js";
+import { db } from "../config/firebase.js";
+import admin from "firebase-admin";
 
 export class FirebaseUserRepository implements IUserRepository {
-  private usersRef = db.ref('users');
+  private usersRef = db.ref("users");
 
-  async findByUsername(username: string): Promise<{ id: string; user: User } | null> {
-    const snapshot = await this.usersRef.orderByChild('username').equalTo(username).once('value');
+  async updateProfile(userId: string, data: Partial<User>): Promise<void> {
+    await this.usersRef.child(userId).update(data);
+  }
+
+  async findByUsername(
+    username: string,
+  ): Promise<{ id: string; user: User } | null> {
+    const snapshot = await this.usersRef
+      .orderByChild("username")
+      .equalTo(username)
+      .once("value");
     if (!snapshot.exists()) return null;
 
     let foundUser: { id: string; user: User } | null = null;
@@ -23,7 +32,7 @@ export class FirebaseUserRepository implements IUserRepository {
           avatar: data.avatar,
           mood: data.mood,
           fcmToken: data.fcmToken,
-        }
+        },
       };
     });
     return foundUser;
@@ -34,22 +43,25 @@ export class FirebaseUserRepository implements IUserRepository {
     const userData = {
       username,
       password: passwordHash,
-      createdAt: admin.database.ServerValue.TIMESTAMP
+      createdAt: admin.database.ServerValue.TIMESTAMP,
     };
     await newUserRef.set(userData);
     return {
       id: newUserRef.key as string,
-      username
+      username,
     };
   }
 
   async usernameExists(username: string): Promise<boolean> {
-    const snapshot = await this.usersRef.orderByChild('username').equalTo(username).once('value');
+    const snapshot = await this.usersRef
+      .orderByChild("username")
+      .equalTo(username)
+      .once("value");
     return snapshot.exists();
   }
 
   async findById(id: string): Promise<User | null> {
-    const snapshot = await this.usersRef.child(id).once('value');
+    const snapshot = await this.usersRef.child(id).once("value");
     if (!snapshot.exists()) return null;
     const data = snapshot.val();
     return {
@@ -58,7 +70,7 @@ export class FirebaseUserRepository implements IUserRepository {
       createdAt: data.createdAt,
       avatar: data.avatar,
       mood: data.mood,
-      fcmToken: data.fcmToken
+      fcmToken: data.fcmToken,
     };
   }
 

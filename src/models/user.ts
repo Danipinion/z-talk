@@ -6,11 +6,12 @@ export interface User {
   avatar?: string;
   mood?: string;
   fcmToken?: string;
+  background?: string;
 }
 
 export interface AuthResponse {
   message: string;
   token?: string;
-  user?: Omit<User, 'password'>;
+  user?: Omit<User, "password">;
   error?: string;
 }
