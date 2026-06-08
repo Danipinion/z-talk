@@ -104,8 +104,16 @@ class WebSocketManager(private val context: Context, private val userId: String)
                             if (isSentByMe) {
                                 db.messageDao().deleteOnePendingMessage(roomId, messageText)
                             }
+                            // Preserve existing isUnread value if message already exists in Room
+                            // (prevents read-status being reset when WebSocket reconnects)
+                            val existingMessage = db.messageDao().getMessageById(messageId)
+                            val effectiveIsUnread = if (existingMessage != null) {
+                                existingMessage.isUnread
+                            } else {
+                                !isSentByMe
+                            }
                             // 1. Insert message to Room
-                            db.messageDao().insertMessage(messageEntity)
+                            db.messageDao().insertMessage(messageEntity.copy(isUnread = effectiveIsUnread))
 
                             // 2. Derive partner info and insert/update ChatRoom (only if not temporary)
                             if (!isTemporary) {

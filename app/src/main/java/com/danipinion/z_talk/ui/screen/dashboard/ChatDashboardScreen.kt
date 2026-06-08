@@ -208,7 +208,21 @@ fun ChatDashboardScreen(
             val friends = (friendsState as? AuthState.Success)?.data ?: emptyList()
             val requests = (requestsState as? AuthState.Success)?.data ?: emptyList()
 
-            val mappedChats = friends.map { friend ->
+            // Stable sort order — only based on chatRooms timestamps (not unread count)
+            // This ensures reading a message doesn't reorder the list
+            val sortedFriendIds = remember(friends, chatRooms) {
+                friends.sortedByDescending { friend ->
+                    val rId = if (userId < friend.id) "${userId}_${friend.id}" else "${friend.id}_${userId}"
+                    chatRooms.find { it.roomId == rId }?.lastTimestamp ?: 0L
+                }.map { it.id }
+            }
+
+            val sortedFriends = remember(sortedFriendIds, friends) {
+                val friendMap = friends.associateBy { it.id }
+                sortedFriendIds.mapNotNull { friendMap[it] }
+            }
+
+            val mappedChats = sortedFriends.map { friend ->
                 val rId = if (userId < friend.id) "${userId}_${friend.id}" else "${friend.id}_${userId}"
                 val room = chatRooms.find { it.roomId == rId }
                 val roomUnreadCount = unreadMessages.count { it.roomId == rId }
@@ -232,10 +246,8 @@ fun ChatDashboardScreen(
                 )
             }
 
-            val sortedMappedChats = mappedChats.sortedByDescending { chat ->
-                val rId = if (userId < chat.id) "${userId}_${chat.id}" else "${chat.id}_${userId}"
-                chatRooms.find { it.roomId == rId }?.lastTimestamp ?: 0L
-            }
+            // No re-sort here — order is already stable from sortedFriends
+            val sortedMappedChats = mappedChats
 
             val currentChats = when (selectedTab) {
                 0 -> sortedMappedChats
@@ -247,8 +259,8 @@ fun ChatDashboardScreen(
                         lastMessage = "Sent you a friend request",
                         time = "Pending",
                         avatarUrl = request.senderAvatar ?: "",
-                        isUnread = true,
-                        unreadCount = 1,
+                        isUnread = false,
+                        unreadCount = 0,
                         isRequest = true,
                         mood = request.senderMood
                     )
@@ -576,14 +588,14 @@ fun ChatList(
     LazyColumn(
         modifier = Modifier.fillMaxSize()
     ) {
-        items(chats, key = { it.name }) { chat ->
+        items(chats, key = { it.id + it.name }) { chat ->
             ChatListItem(
                 chat = chat,
                 selectedTab = selectedTab,
                 onClick = onItemClick,
                 onAccept = { onAccept(chat) },
                 onDecline = { onDecline(chat) },
-                modifier = Modifier.animateItem()
+                modifier = Modifier
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 82.dp, end = 16.dp),

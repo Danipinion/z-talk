@@ -60,6 +60,9 @@ interface MessageDao {
     @Query("SELECT COUNT(*) > 0 FROM messages WHERE roomId = :roomId AND text = :text")
     fun hasMessageWithTextFlow(roomId: String, text: String): Flow<Boolean>
 
+    @Query("SELECT * FROM messages WHERE messageId = :messageId LIMIT 1")
+    fun getMessageById(messageId: String): MessageEntity?
+
     @Query("SELECT * FROM messages WHERE roomId = :roomId AND text LIKE :query AND isTemporary = 0 ORDER BY timestamp DESC")
     fun searchMessagesForRoom(roomId: String, query: String): Flow<List<MessageEntity>>
 
